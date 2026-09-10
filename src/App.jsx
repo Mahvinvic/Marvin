@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect, useRef } from "react";
 import {
   CheckCircle2,
   Circle,
@@ -8,12 +8,23 @@ import {
   TrendingUp,
   X,
   ListTodo,
+  HeartPulse,
+  Image as ImageIcon,
+  Bell,
 } from "lucide-react";
 
+const NAG_INTERVAL_MS = 30 * 60 * 1000;
+
 const initialGoals = [
-  { id: "g1", title: "Build public speaking confidence", target: 3, color: "#3F5B45" },
-  { id: "g2", title: "Strengthen delegation habits", target: 2, color: "#7D6A4F" },
-  { id: "g3", title: "Deepen SQL & data fluency", target: 4, color: "#4A6670" },
+  { id: "g1", title: "Build public speaking confidence", target: 3, color: "#3F5B45", media: null },
+  { id: "g2", title: "Strengthen delegation habits", target: 2, color: "#7D6A4F", media: null },
+  { id: "g3", title: "Deepen SQL & data fluency", target: 4, color: "#4A6670", media: null },
+];
+
+const initialHabits = [
+  { id: "h1", title: "Drink 2L of water", done: false },
+  { id: "h2", title: "Stretch for 10 minutes", done: false },
+  { id: "h3", title: "Lights out by 11pm", done: false },
 ];
 
 const initialTasks = [
@@ -46,6 +57,7 @@ const trendWeeks = [
 const NAV = [
   { id: "today", label: "Today", icon: ListTodo },
   { id: "goals", label: "Goals", icon: Target },
+  { id: "habits", label: "Habits", icon: HeartPulse },
   { id: "reflect", label: "Reflect", icon: MessageSquareText },
   { id: "trends", label: "Trends", icon: TrendingUp },
 ];
@@ -106,6 +118,32 @@ export default function App() {
 
   const [reflectDraft, setReflectDraft] = useState({ win: "", friction: "", energy: "Steady" });
 
+  const [habits, setHabits] = useState(initialHabits);
+  const [showAddHabit, setShowAddHabit] = useState(false);
+  const [newHabitText, setNewHabitText] = useState("");
+  const [notifPermission, setNotifPermission] = useState(
+    typeof window !== "undefined" && "Notification" in window ? Notification.permission : "unsupported"
+  );
+  const [nagHabit, setNagHabit] = useState(null);
+
+  const habitsRef = useRef(habits);
+  useEffect(() => {
+    habitsRef.current = habits;
+  }, [habits]);
+
+  useEffect(() => {
+    const id = setInterval(() => {
+      const pending = habitsRef.current.filter((h) => !h.done);
+      if (pending.length === 0) return;
+      const target = pending[Math.floor(Math.random() * pending.length)];
+      setNagHabit(target);
+      if (typeof window !== "undefined" && "Notification" in window && Notification.permission === "granted") {
+        new Notification("Still on today's list", { body: `"${target.title}" isn't done yet.` });
+      }
+    }, NAG_INTERVAL_MS);
+    return () => clearInterval(id);
+  }, []);
+
   const goalById = (id) => goals.find((g) => g.id === id);
 
   const doneCountForGoal = (goalId) =>
@@ -127,6 +165,42 @@ export default function App() {
   function removeGoal(id) {
     setGoals((prev) => prev.filter((g) => g.id !== id));
     setTasks((prev) => prev.map((t) => (t.goalId === id ? { ...t, goalId: null } : t)));
+  }
+
+  function setGoalMedia(goalId, file) {
+    if (!file) return;
+    const type = file.type.startsWith("video/") ? "video" : "image";
+    const reader = new FileReader();
+    reader.onload = () => {
+      setGoals((prev) =>
+        prev.map((g) => (g.id === goalId ? { ...g, media: { type, url: reader.result, name: file.name } } : g))
+      );
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function removeGoalMedia(goalId) {
+    setGoals((prev) => prev.map((g) => (g.id === goalId ? { ...g, media: null } : g)));
+  }
+
+  function toggleHabit(id) {
+    setHabits((prev) => prev.map((h) => (h.id === id ? { ...h, done: !h.done } : h)));
+  }
+
+  function addHabit() {
+    if (!newHabitText.trim()) return;
+    setHabits((prev) => [...prev, { id: `h${Date.now()}`, title: newHabitText.trim(), done: false }]);
+    setNewHabitText("");
+    setShowAddHabit(false);
+  }
+
+  function removeHabit(id) {
+    setHabits((prev) => prev.filter((h) => h.id !== id));
+  }
+
+  function requestNotifPermission() {
+    if (typeof window === "undefined" || !("Notification" in window)) return;
+    Notification.requestPermission().then(setNotifPermission);
   }
 
   function addTask() {
@@ -308,11 +382,28 @@ export default function App() {
             tasks={tasks}
             doneCountForGoal={doneCountForGoal}
             removeGoal={removeGoal}
+            setGoalMedia={setGoalMedia}
+            removeGoalMedia={removeGoalMedia}
             showAddGoal={showAddGoal}
             setShowAddGoal={setShowAddGoal}
             newGoalTitle={newGoalTitle}
             setNewGoalTitle={setNewGoalTitle}
             addGoal={addGoal}
+          />
+        )}
+
+        {view === "habits" && (
+          <HabitsView
+            habits={habits}
+            toggleHabit={toggleHabit}
+            removeHabit={removeHabit}
+            showAddHabit={showAddHabit}
+            setShowAddHabit={setShowAddHabit}
+            newHabitText={newHabitText}
+            setNewHabitText={setNewHabitText}
+            addHabit={addHabit}
+            notifPermission={notifPermission}
+            requestNotifPermission={requestNotifPermission}
           />
         )}
 
@@ -349,6 +440,61 @@ export default function App() {
           );
         })}
       </nav>
+
+      <NagToast
+        habit={nagHabit}
+        onComplete={() => {
+          toggleHabit(nagHabit.id);
+          setNagHabit(null);
+        }}
+        onDismiss={() => setNagHabit(null)}
+      />
+    </div>
+  );
+}
+
+function NagToast({ habit, onComplete, onDismiss }) {
+  if (!habit) return null;
+  return (
+    <div
+      className="pga-card"
+      style={{
+        position: "fixed",
+        right: "20px",
+        bottom: "20px",
+        maxWidth: "320px",
+        padding: "14px 16px",
+        display: "flex",
+        gap: "12px",
+        alignItems: "flex-start",
+        borderColor: "var(--clay)",
+        background: "var(--clay-soft)",
+        zIndex: 50,
+        boxShadow: "0 8px 24px rgba(0,0,0,0.15)",
+      }}
+    >
+      <AssistantAvatar size={30} />
+      <div style={{ flex: 1 }}>
+        <p style={{ fontSize: "13.5px", color: "var(--ink)", marginBottom: "10px" }}>
+          Still haven't done "{habit.title}" today. Quick, knock it out?
+        </p>
+        <div className="flex gap-2">
+          <button
+            className="pga-btn-primary"
+            style={{ padding: "6px 12px", fontSize: "12.5px" }}
+            onClick={onComplete}
+          >
+            Mark done
+          </button>
+          <button
+            className="pga-btn-ghost"
+            style={{ padding: "6px 12px", fontSize: "12.5px" }}
+            onClick={onDismiss}
+          >
+            Later
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -471,7 +617,19 @@ function TodayView({
   );
 }
 
-function GoalsView({ goals, tasks, doneCountForGoal, removeGoal, showAddGoal, setShowAddGoal, newGoalTitle, setNewGoalTitle, addGoal }) {
+function GoalsView({
+  goals,
+  tasks,
+  doneCountForGoal,
+  removeGoal,
+  setGoalMedia,
+  removeGoalMedia,
+  showAddGoal,
+  setShowAddGoal,
+  newGoalTitle,
+  setNewGoalTitle,
+  addGoal,
+}) {
   return (
     <div>
       <h1 className="pga-serif mb-1" style={{ fontSize: "26px", fontWeight: 500 }}>Active goals</h1>
@@ -499,6 +657,62 @@ function GoalsView({ goals, tasks, doneCountForGoal, removeGoal, showAddGoal, se
                   </button>
                 </div>
               </div>
+
+              {g.media ? (
+                <div className="relative mb-3" style={{ borderRadius: "6px", overflow: "hidden" }}>
+                  {g.media.type === "video" ? (
+                    <video
+                      src={g.media.url}
+                      controls
+                      style={{ width: "100%", maxHeight: "160px", objectFit: "cover", borderRadius: "6px" }}
+                    />
+                  ) : (
+                    <img
+                      src={g.media.url}
+                      alt={g.title}
+                      style={{ width: "100%", maxHeight: "160px", objectFit: "cover", borderRadius: "6px" }}
+                    />
+                  )}
+                  <button
+                    onClick={() => removeGoalMedia(g.id)}
+                    aria-label="Remove media"
+                    style={{
+                      position: "absolute",
+                      top: "6px",
+                      right: "6px",
+                      background: "rgba(0,0,0,0.55)",
+                      borderRadius: "999px",
+                      padding: "4px",
+                      color: "#fff",
+                      display: "flex",
+                    }}
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
+              ) : (
+                <label
+                  className="pga-btn-ghost"
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "6px",
+                    fontSize: "12.5px",
+                    padding: "6px 10px",
+                    cursor: "pointer",
+                    marginBottom: "10px",
+                  }}
+                >
+                  <ImageIcon size={14} /> Add photo or video
+                  <input
+                    type="file"
+                    accept="image/*,video/*"
+                    style={{ display: "none" }}
+                    onChange={(e) => setGoalMedia(g.id, e.target.files?.[0])}
+                  />
+                </label>
+              )}
+
               <div className="pga-progress-track">
                 <div className="pga-progress-fill" style={{ width: `${pct}%`, background: g.color }} />
               </div>
@@ -529,6 +743,110 @@ function GoalsView({ goals, tasks, doneCountForGoal, removeGoal, showAddGoal, se
           onClick={() => setShowAddGoal(true)}
         >
           <Plus size={16} /> Add a goal
+        </button>
+      )}
+    </div>
+  );
+}
+
+function HabitsView({
+  habits,
+  toggleHabit,
+  removeHabit,
+  showAddHabit,
+  setShowAddHabit,
+  newHabitText,
+  setNewHabitText,
+  addHabit,
+  notifPermission,
+  requestNotifPermission,
+}) {
+  const doneCount = habits.filter((h) => h.done).length;
+
+  return (
+    <div>
+      <h1 className="pga-serif mb-1" style={{ fontSize: "26px", fontWeight: 500 }}>Daily habits</h1>
+      <p className="mb-6" style={{ fontSize: "13.5px", color: "var(--ink-soft)" }}>
+        {doneCount} / {habits.length} done today. Leave one unchecked and Waypoint will keep nudging you.
+      </p>
+
+      {notifPermission === "default" && (
+        <div className="pga-card mb-4 px-4 py-3 flex items-center justify-between gap-3">
+          <span style={{ fontSize: "13px", color: "var(--ink-soft)" }}>
+            Turn on browser notifications so nudges reach you even in another tab.
+          </span>
+          <button
+            className="pga-btn-ghost"
+            style={{ fontSize: "12.5px", padding: "6px 12px", whiteSpace: "nowrap", display: "inline-flex", alignItems: "center", gap: "6px" }}
+            onClick={requestNotifPermission}
+          >
+            <Bell size={14} /> Enable
+          </button>
+        </div>
+      )}
+      {notifPermission === "denied" && (
+        <div className="pga-card mb-4 px-4 py-3" style={{ fontSize: "12.5px", color: "var(--ink-soft)" }}>
+          Notifications are blocked. Waypoint will still nudge you in-app while it's open.
+        </div>
+      )}
+
+      <div className="pga-card mb-4">
+        {habits.length === 0 && (
+          <div className="pga-empty">No habits yet. Add one below to start tracking.</div>
+        )}
+        {habits.map((h) => (
+          <div className="pga-task-row" key={h.id}>
+            <button onClick={() => toggleHabit(h.id)} className="shrink-0" aria-label="Toggle habit">
+              {h.done ? (
+                <CheckCircle2 size={19} color="var(--accent)" strokeWidth={1.75} />
+              ) : (
+                <Circle size={19} color="var(--ink-soft)" strokeWidth={1.75} />
+              )}
+            </button>
+            <span
+              style={{
+                fontSize: "14.5px",
+                color: h.done ? "var(--ink-soft)" : "var(--ink)",
+                textDecoration: h.done ? "line-through" : "none",
+                flex: 1,
+              }}
+            >
+              {h.title}
+            </span>
+            <button
+              onClick={() => removeHabit(h.id)}
+              className="shrink-0"
+              aria-label="Remove habit"
+              style={{ color: "var(--ink-soft)" }}
+            >
+              <X size={16} strokeWidth={1.75} />
+            </button>
+          </div>
+        ))}
+      </div>
+
+      {showAddHabit ? (
+        <div className="pga-card px-4 py-4">
+          <input
+            autoFocus
+            className="pga-input mb-3"
+            placeholder="e.g. 10-minute walk"
+            value={newHabitText}
+            onChange={(e) => setNewHabitText(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && addHabit()}
+          />
+          <div className="flex gap-2">
+            <button className="pga-btn-primary" onClick={addHabit}>Add habit</button>
+            <button className="pga-btn-ghost" onClick={() => setShowAddHabit(false)}>Cancel</button>
+          </div>
+        </div>
+      ) : (
+        <button
+          className="flex items-center gap-2"
+          style={{ fontSize: "14px", color: "var(--ink-soft)" }}
+          onClick={() => setShowAddHabit(true)}
+        >
+          <Plus size={16} /> Add a habit
         </button>
       )}
     </div>
