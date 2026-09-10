@@ -16,9 +16,9 @@ import {
 const NAG_INTERVAL_MS = 30 * 60 * 1000;
 
 const initialGoals = [
-  { id: "g1", title: "Build public speaking confidence", target: 3, color: "#3F5B45", media: null },
-  { id: "g2", title: "Strengthen delegation habits", target: 2, color: "#7D6A4F", media: null },
-  { id: "g3", title: "Deepen SQL & data fluency", target: 4, color: "#4A6670", media: null },
+  { id: "g1", title: "Build public speaking confidence", target: 3, color: "#34C759", media: null },
+  { id: "g2", title: "Strengthen delegation habits", target: 2, color: "#FF9500", media: null },
+  { id: "g3", title: "Deepen SQL & data fluency", target: 4, color: "#5856D6", media: null },
 ];
 
 const initialHabits = [
@@ -216,7 +216,7 @@ export default function App() {
 
   function addGoal() {
     if (!newGoalTitle.trim()) return;
-    const palette = ["#3F5B45", "#7D6A4F", "#4A6670", "#8B5A3C", "#5B4B6E"];
+    const palette = ["#34C759", "#FF9500", "#5856D6", "#FF2D55", "#30B0C7"];
     const color = palette[goals.length % palette.length];
     setGoals((prev) => [...prev, { id: `g${Date.now()}`, title: newGoalTitle.trim(), target: 3, color }]);
     setNewGoalTitle("");
@@ -235,87 +235,129 @@ export default function App() {
   return (
     <div className="pga-app min-h-screen w-full flex">
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Work+Sans:wght@400;500;600&display=swap');
-
         .pga-app {
-          --bg: #EFEDE6;
-          --surface: #FBFAF6;
-          --ink: #2B2A26;
-          --ink-soft: #6B6558;
-          --accent: #3F5B45;
-          --accent-soft: #DCE3D6;
-          --clay: #A6603B;
-          --clay-soft: #EFDDCF;
-          --border: #DDD9CC;
+          --bg: #F2F2F7;
+          --surface: #FFFFFF;
+          --surface-2: #F2F2F7;
+          --ink: #000000;
+          --ink-soft: rgba(60, 60, 67, 0.6);
+          --accent: #007AFF;
+          --accent-soft: rgba(0, 122, 255, 0.12);
+          --success: #34C759;
+          --danger: #FF3B30;
+          --clay: #FF9500;
+          --clay-soft: rgba(255, 149, 0, 0.12);
+          --border: rgba(60, 60, 67, 0.22);
+          --shadow: 0 10px 30px rgba(0, 0, 0, 0.12);
           background: var(--bg);
           color: var(--ink);
-          font-family: 'Work Sans', sans-serif;
+          font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+          -webkit-font-smoothing: antialiased;
         }
-        .pga-serif { font-family: 'Fraunces', serif; }
+
+        @media (prefers-color-scheme: dark) {
+          .pga-app {
+            --bg: #000000;
+            --surface: #1C1C1E;
+            --surface-2: #2C2C2E;
+            --ink: #FFFFFF;
+            --ink-soft: rgba(235, 235, 245, 0.6);
+            --accent: #0A84FF;
+            --accent-soft: rgba(10, 132, 255, 0.18);
+            --success: #30D158;
+            --danger: #FF453A;
+            --clay: #FF9F0A;
+            --clay-soft: rgba(255, 159, 10, 0.18);
+            --border: rgba(84, 84, 88, 0.6);
+            --shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+          }
+        }
+
+        .pga-heading {
+          font-family: inherit;
+          font-weight: 700;
+          letter-spacing: -0.02em;
+          color: var(--ink);
+        }
 
         .pga-nav-btn {
           display: flex; align-items: center; gap: 10px;
           width: 100%; text-align: left;
-          padding: 9px 12px; border-radius: 6px;
-          font-size: 14px; color: var(--ink-soft);
-          border: 1px solid transparent;
+          padding: 10px 12px; border-radius: 10px;
+          font-size: 14.5px; font-weight: 500; color: var(--ink-soft);
+          border: none;
           transition: background 0.15s ease, color 0.15s ease;
         }
-        .pga-nav-btn:hover { background: rgba(0,0,0,0.03); color: var(--ink); }
+        .pga-nav-btn:hover { background: rgba(120, 120, 128, 0.08); color: var(--ink); }
         .pga-nav-btn.active {
-          background: var(--surface); color: var(--ink);
-          border-color: var(--border);
+          background: var(--accent-soft); color: var(--accent);
         }
 
         .pga-card {
           background: var(--surface);
           border: 1px solid var(--border);
-          border-radius: 8px;
+          border-radius: 14px;
         }
 
         .pga-task-row {
           display: flex; align-items: center; gap: 12px;
-          padding: 12px 14px;
+          padding: 12px 16px;
           border-bottom: 1px solid var(--border);
+          transition: background 0.12s ease;
         }
         .pga-task-row:last-child { border-bottom: none; }
+        .pga-task-row:hover { background: rgba(120, 120, 128, 0.06); }
 
         .pga-chip {
-          font-size: 11.5px; padding: 2px 9px; border-radius: 999px;
+          font-size: 12px; font-weight: 600; padding: 3px 10px; border-radius: 999px;
           display: inline-flex; align-items: center; gap: 5px;
           white-space: nowrap;
         }
 
         .pga-input {
-          width: 100%; background: var(--surface); border: 1px solid var(--border);
-          border-radius: 6px; padding: 9px 11px; font-size: 14px; color: var(--ink);
-          font-family: 'Work Sans', sans-serif;
+          width: 100%; background: var(--surface-2); border: none;
+          border-radius: 10px; padding: 10px 12px; font-size: 15px; color: var(--ink);
+          font-family: inherit;
         }
-        .pga-input:focus { outline: none; border-color: var(--accent); }
+        .pga-input::placeholder { color: var(--ink-soft); }
+        .pga-input:focus { outline: none; box-shadow: 0 0 0 3px var(--accent-soft); }
 
         .pga-btn-primary {
-          background: var(--accent); color: #FBFAF6;
-          border-radius: 6px; padding: 9px 16px; font-size: 14px;
+          background: var(--accent); color: #fff;
+          border-radius: 12px; padding: 10px 18px; font-size: 15px; font-weight: 600;
           border: none; cursor: pointer;
         }
-        .pga-btn-primary:hover { opacity: 0.92; }
+        .pga-btn-primary:hover { opacity: 0.88; }
+        .pga-btn-primary:active { opacity: 0.7; }
 
         .pga-btn-ghost {
-          background: transparent; color: var(--ink-soft);
-          border: 1px solid var(--border); border-radius: 6px;
-          padding: 9px 14px; font-size: 14px; cursor: pointer;
+          background: var(--surface-2); color: var(--accent);
+          border: none; border-radius: 12px;
+          padding: 10px 16px; font-size: 15px; font-weight: 600; cursor: pointer;
         }
-        .pga-btn-ghost:hover { color: var(--ink); border-color: var(--ink-soft); }
+        .pga-btn-ghost:hover { opacity: 0.85; }
+        .pga-btn-ghost:active { opacity: 0.65; }
+
+        .pga-segment {
+          display: flex; gap: 2px; padding: 2px;
+          background: var(--surface-2); border-radius: 9px;
+        }
+        .pga-segment button {
+          flex: 1; padding: 7px 10px; font-size: 13.5px; font-weight: 600;
+          border-radius: 7px; border: none; background: transparent; color: var(--ink-soft);
+          cursor: pointer; transition: background 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+        }
+        .pga-segment button.active {
+          background: var(--surface); color: var(--ink);
+          box-shadow: 0 1px 4px rgba(0, 0, 0, 0.16);
+        }
 
         .pga-progress-track {
-          height: 5px; border-radius: 999px; background: var(--border); overflow: hidden;
+          height: 6px; border-radius: 999px; background: var(--surface-2); overflow: hidden;
         }
-        .pga-progress-fill { height: 100%; border-radius: 999px; }
+        .pga-progress-fill { height: 100%; border-radius: 999px; transition: width 0.3s ease; }
 
         .pga-bar-col { display: flex; flex-direction: column; justify-content: flex-end; gap: 3px; }
-
-        .pga-task-row { transition: background 0.12s ease; }
-        .pga-task-row:hover { background: rgba(0,0,0,0.015); }
 
         .pga-app button:focus-visible,
         .pga-app input:focus-visible,
@@ -326,16 +368,25 @@ export default function App() {
         }
 
         .pga-empty {
-          text-align: center; padding: 34px 20px; color: var(--ink-soft); font-size: 13.5px;
+          text-align: center; padding: 40px 20px; color: var(--ink-soft); font-size: 14px;
         }
+
+        @keyframes pgaSlideDown {
+          from { opacity: 0; transform: translate(-50%, -14px); }
+          to { opacity: 1; transform: translate(-50%, 0); }
+        }
+        .pga-banner-in { animation: pgaSlideDown 0.35s cubic-bezier(0.2, 0.9, 0.3, 1) forwards; }
       `}</style>
 
       {/* Sidebar */}
-      <aside className="w-56 shrink-0 border-r px-4 py-6 hidden sm:flex flex-col gap-1" style={{ borderColor: "var(--border)" }}>
+      <aside
+        className="w-56 shrink-0 border-r px-4 py-6 hidden sm:flex flex-col gap-1"
+        style={{ borderColor: "var(--border)", background: "var(--surface)" }}
+      >
         <div className="flex items-center gap-2.5 px-2 pb-6">
           <AssistantAvatar size={34} />
           <div>
-            <div className="pga-serif" style={{ fontSize: "16px", fontWeight: 500, lineHeight: 1.1 }}>
+            <div className="pga-heading" style={{ fontSize: "17px", fontWeight: 700, lineHeight: 1.1 }}>
               Waypoint
             </div>
             <div style={{ fontSize: "11.5px", color: "var(--ink-soft)" }}>your assistant</div>
@@ -422,7 +473,13 @@ export default function App() {
       {/* Mobile bottom nav */}
       <nav
         className="sm:hidden fixed bottom-0 left-0 right-0 flex items-stretch"
-        style={{ background: "var(--surface)", borderTop: "1px solid var(--border)" }}
+        style={{
+          background: "color-mix(in srgb, var(--surface) 82%, transparent)",
+          backdropFilter: "blur(20px) saturate(180%)",
+          WebkitBackdropFilter: "blur(20px) saturate(180%)",
+          borderTop: "1px solid var(--border)",
+          paddingBottom: "env(safe-area-inset-bottom, 0px)",
+        }}
       >
         {NAV.map((item) => {
           const Icon = item.icon;
@@ -434,8 +491,8 @@ export default function App() {
               className="flex-1 flex flex-col items-center gap-1 py-2.5"
               style={{ color: active ? "var(--accent)" : "var(--ink-soft)" }}
             >
-              <Icon size={19} strokeWidth={1.75} />
-              <span style={{ fontSize: "10.5px" }}>{item.label}</span>
+              <Icon size={19} strokeWidth={active ? 2 : 1.75} />
+              <span style={{ fontSize: "10.5px", fontWeight: active ? 600 : 400 }}>{item.label}</span>
             </button>
           );
         })}
@@ -457,43 +514,47 @@ function NagToast({ habit, onComplete, onDismiss }) {
   if (!habit) return null;
   return (
     <div
-      className="pga-card"
+      className="pga-card pga-banner-in"
       style={{
         position: "fixed",
-        right: "20px",
-        bottom: "20px",
-        maxWidth: "320px",
-        padding: "14px 16px",
-        display: "flex",
-        gap: "12px",
-        alignItems: "flex-start",
-        borderColor: "var(--clay)",
-        background: "var(--clay-soft)",
-        zIndex: 50,
-        boxShadow: "0 8px 24px rgba(0,0,0,0.15)",
+        top: "calc(env(safe-area-inset-top, 0px) + 12px)",
+        left: "50%",
+        width: "calc(100% - 24px)",
+        maxWidth: "380px",
+        padding: "12px 14px",
+        zIndex: 60,
+        boxShadow: "var(--shadow)",
+        backdropFilter: "blur(20px) saturate(180%)",
+        WebkitBackdropFilter: "blur(20px) saturate(180%)",
+        background: "color-mix(in srgb, var(--surface) 92%, transparent)",
       }}
     >
-      <AssistantAvatar size={30} />
-      <div style={{ flex: 1 }}>
-        <p style={{ fontSize: "13.5px", color: "var(--ink)", marginBottom: "10px" }}>
-          Still haven't done "{habit.title}" today. Quick, knock it out?
-        </p>
-        <div className="flex gap-2">
-          <button
-            className="pga-btn-primary"
-            style={{ padding: "6px 12px", fontSize: "12.5px" }}
-            onClick={onComplete}
-          >
-            Mark done
-          </button>
-          <button
-            className="pga-btn-ghost"
-            style={{ padding: "6px 12px", fontSize: "12.5px" }}
-            onClick={onDismiss}
-          >
-            Later
-          </button>
-        </div>
+      <div className="flex items-center gap-2 mb-1.5">
+        <AssistantAvatar size={22} />
+        <span style={{ fontSize: "13px", fontWeight: 700, color: "var(--ink)", flex: 1 }}>Waypoint</span>
+        <span style={{ fontSize: "12px", color: "var(--ink-soft)" }}>now</span>
+        <button onClick={onDismiss} aria-label="Dismiss" style={{ color: "var(--ink-soft)" }}>
+          <X size={14} strokeWidth={2} />
+        </button>
+      </div>
+      <p style={{ fontSize: "14px", color: "var(--ink)", marginBottom: "10px" }}>
+        Still haven't done "{habit.title}" today. Quick, knock it out?
+      </p>
+      <div className="flex justify-end gap-2">
+        <button
+          className="pga-btn-ghost"
+          style={{ padding: "6px 12px", fontSize: "12.5px" }}
+          onClick={onDismiss}
+        >
+          Later
+        </button>
+        <button
+          className="pga-btn-primary"
+          style={{ padding: "6px 12px", fontSize: "12.5px" }}
+          onClick={onComplete}
+        >
+          Mark done
+        </button>
       </div>
     </div>
   );
@@ -519,7 +580,7 @@ function TodayView({
   return (
     <div>
       <div className="mb-1" style={{ fontSize: "13px", color: "var(--ink-soft)" }}>{today}</div>
-      <h1 className="pga-serif mb-6" style={{ fontSize: "26px", fontWeight: 500 }}>
+      <h1 className="pga-heading mb-6" style={{ fontSize: "28px", fontWeight: 700 }}>
         What moves you forward today
       </h1>
 
@@ -546,7 +607,7 @@ function TodayView({
             <div className="pga-task-row" key={t.id}>
               <button onClick={() => toggleTask(t.id)} className="shrink-0" aria-label="Toggle task">
                 {t.done ? (
-                  <CheckCircle2 size={19} color="var(--accent)" strokeWidth={1.75} />
+                  <CheckCircle2 size={19} color="var(--success)" strokeWidth={1.75} />
                 ) : (
                   <Circle size={19} color="var(--ink-soft)" strokeWidth={1.75} />
                 )}
@@ -632,7 +693,7 @@ function GoalsView({
 }) {
   return (
     <div>
-      <h1 className="pga-serif mb-1" style={{ fontSize: "26px", fontWeight: 500 }}>Active goals</h1>
+      <h1 className="pga-heading mb-1" style={{ fontSize: "28px", fontWeight: 700 }}>Active goals</h1>
       <p className="mb-6" style={{ fontSize: "13.5px", color: "var(--ink-soft)" }}>
         Every task you tag to a goal counts here, automatically.
       </p>
@@ -644,7 +705,7 @@ function GoalsView({
           return (
             <div className="pga-card px-4 py-4" key={g.id}>
               <div className="flex items-center justify-between mb-2">
-                <span className="pga-serif" style={{ fontSize: "16px", fontWeight: 500 }}>{g.title}</span>
+                <span className="pga-heading" style={{ fontSize: "17px", fontWeight: 600 }}>{g.title}</span>
                 <div className="flex items-center gap-3">
                   <span style={{ fontSize: "13px", color: "var(--ink-soft)" }}>{done} / {g.target} this week</span>
                   <button
@@ -765,7 +826,7 @@ function HabitsView({
 
   return (
     <div>
-      <h1 className="pga-serif mb-1" style={{ fontSize: "26px", fontWeight: 500 }}>Daily habits</h1>
+      <h1 className="pga-heading mb-1" style={{ fontSize: "28px", fontWeight: 700 }}>Daily habits</h1>
       <p className="mb-6" style={{ fontSize: "13.5px", color: "var(--ink-soft)" }}>
         {doneCount} / {habits.length} done today. Leave one unchecked and Waypoint will keep nudging you.
       </p>
@@ -798,7 +859,7 @@ function HabitsView({
           <div className="pga-task-row" key={h.id}>
             <button onClick={() => toggleHabit(h.id)} className="shrink-0" aria-label="Toggle habit">
               {h.done ? (
-                <CheckCircle2 size={19} color="var(--accent)" strokeWidth={1.75} />
+                <CheckCircle2 size={19} color="var(--success)" strokeWidth={1.75} />
               ) : (
                 <Circle size={19} color="var(--ink-soft)" strokeWidth={1.75} />
               )}
@@ -859,7 +920,7 @@ function ReflectView({ reflections, reflectDraft, setReflectDraft, submitReflect
     <div>
       <div className="flex items-center gap-3 mb-1">
         <AssistantAvatar size={30} />
-        <h1 className="pga-serif" style={{ fontSize: "26px", fontWeight: 500 }}>Weekly check-in</h1>
+        <h1 className="pga-heading" style={{ fontSize: "28px", fontWeight: 700 }}>Weekly check-in</h1>
       </div>
       <p className="mb-6" style={{ fontSize: "13.5px", color: "var(--ink-soft)" }}>
         Three short questions. Takes about two minutes.
@@ -881,18 +942,12 @@ function ReflectView({ reflections, reflectDraft, setReflectDraft, submitReflect
           onChange={(e) => setReflectDraft((d) => ({ ...d, friction: e.target.value }))}
         />
         <label style={{ fontSize: "13px", color: "var(--ink-soft)" }}>Energy this week</label>
-        <div className="flex gap-2 mt-2 mb-4">
+        <div className="pga-segment mt-2 mb-4">
           {energies.map((e) => (
             <button
               key={e}
               onClick={() => setReflectDraft((d) => ({ ...d, energy: e }))}
-              className="pga-chip"
-              style={{
-                padding: "6px 14px",
-                border: `1px solid ${reflectDraft.energy === e ? "var(--accent)" : "var(--border)"}`,
-                background: reflectDraft.energy === e ? "var(--accent-soft)" : "transparent",
-                color: "var(--ink)",
-              }}
+              className={reflectDraft.energy === e ? "active" : ""}
             >
               {e}
             </button>
@@ -901,7 +956,7 @@ function ReflectView({ reflections, reflectDraft, setReflectDraft, submitReflect
         <button className="pga-btn-primary" onClick={submitReflection}>Save check-in</button>
       </div>
 
-      <h2 className="pga-serif mb-3" style={{ fontSize: "16px", fontWeight: 500 }}>Past check-ins</h2>
+      <h2 className="pga-heading mb-3" style={{ fontSize: "17px", fontWeight: 600 }}>Past check-ins</h2>
       <div className="flex flex-col gap-3">
         {reflections.map((r) => (
           <div className="pga-card px-4 py-3" key={r.id}>
@@ -925,7 +980,7 @@ function TrendsView({ goals }) {
 
   return (
     <div>
-      <h1 className="pga-serif mb-1" style={{ fontSize: "26px", fontWeight: 500 }}>Four-week momentum</h1>
+      <h1 className="pga-heading mb-1" style={{ fontSize: "28px", fontWeight: 700 }}>Four-week momentum</h1>
       <p className="mb-6" style={{ fontSize: "13.5px", color: "var(--ink-soft)" }}>
         Completed tasks per goal, by week.
       </p>
