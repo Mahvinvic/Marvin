@@ -124,6 +124,11 @@ export default function App() {
     setTasks((prev) => prev.filter((t) => t.id !== id));
   }
 
+  function removeGoal(id) {
+    setGoals((prev) => prev.filter((g) => g.id !== id));
+    setTasks((prev) => prev.map((t) => (t.goalId === id ? { ...t, goalId: null } : t)));
+  }
+
   function addTask() {
     if (!newTaskText.trim()) return;
     setTasks((prev) => [
@@ -302,6 +307,7 @@ export default function App() {
             goals={goals}
             tasks={tasks}
             doneCountForGoal={doneCountForGoal}
+            removeGoal={removeGoal}
             showAddGoal={showAddGoal}
             setShowAddGoal={setShowAddGoal}
             newGoalTitle={newGoalTitle}
@@ -465,7 +471,7 @@ function TodayView({
   );
 }
 
-function GoalsView({ goals, tasks, doneCountForGoal, showAddGoal, setShowAddGoal, newGoalTitle, setNewGoalTitle, addGoal }) {
+function GoalsView({ goals, tasks, doneCountForGoal, removeGoal, showAddGoal, setShowAddGoal, newGoalTitle, setNewGoalTitle, addGoal }) {
   return (
     <div>
       <h1 className="pga-serif mb-1" style={{ fontSize: "26px", fontWeight: 500 }}>Active goals</h1>
@@ -481,7 +487,17 @@ function GoalsView({ goals, tasks, doneCountForGoal, showAddGoal, setShowAddGoal
             <div className="pga-card px-4 py-4" key={g.id}>
               <div className="flex items-center justify-between mb-2">
                 <span className="pga-serif" style={{ fontSize: "16px", fontWeight: 500 }}>{g.title}</span>
-                <span style={{ fontSize: "13px", color: "var(--ink-soft)" }}>{done} / {g.target} this week</span>
+                <div className="flex items-center gap-3">
+                  <span style={{ fontSize: "13px", color: "var(--ink-soft)" }}>{done} / {g.target} this week</span>
+                  <button
+                    onClick={() => removeGoal(g.id)}
+                    className="shrink-0"
+                    aria-label="Remove goal"
+                    style={{ color: "var(--ink-soft)" }}
+                  >
+                    <X size={16} strokeWidth={1.75} />
+                  </button>
+                </div>
               </div>
               <div className="pga-progress-track">
                 <div className="pga-progress-fill" style={{ width: `${pct}%`, background: g.color }} />
