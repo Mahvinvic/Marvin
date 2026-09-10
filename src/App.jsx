@@ -16,37 +16,10 @@ import {
 
 const NAG_INTERVAL_MS = 30 * 60 * 1000;
 
-const initialGoals = [
-  { id: "g1", title: "Build public speaking confidence", target: 3, color: "#34C759", media: null },
-  { id: "g2", title: "Strengthen delegation habits", target: 2, color: "#FF9500", media: null },
-  { id: "g3", title: "Deepen SQL & data fluency", target: 4, color: "#5856D6", media: null },
-];
-
-const initialHabits = [
-  { id: "h1", title: "Drink 2L of water", done: false },
-  { id: "h2", title: "Stretch for 10 minutes", done: false },
-  { id: "h3", title: "Lights out by 11pm", done: false },
-];
-
-const initialTasks = [
-  { id: "t1", text: "Volunteer to lead Thursday's standup", goalId: "g1", done: true },
-  { id: "t2", text: "Record a 2-minute practice pitch", goalId: "g1", done: false },
-  { id: "t3", text: "Hand off the onboarding doc to Priya", goalId: "g2", done: true },
-  { id: "t4", text: "Let the team decide the sprint order", goalId: "g2", done: false },
-  { id: "t5", text: "Finish the window functions exercise", goalId: "g3", done: false },
-  { id: "t6", text: "Rewrite yesterday's report query", goalId: "g3", done: true },
-  { id: "t7", text: "Reply to the client escalation email", goalId: null, done: false },
-];
-
-const initialReflections = [
-  {
-    id: "r1",
-    week: "Sep 1–7",
-    win: "Led the retro without notes for the first time.",
-    friction: "Kept saying yes to extra meetings.",
-    energy: "Steady",
-  },
-];
+const initialGoals = [];
+const initialHabits = [];
+const initialTasks = [];
+const initialReflections = [];
 
 const trendWeeks = [
   { week: "Wk 1", g1: 1, g2: 1, g3: 2 },
@@ -160,6 +133,17 @@ export default function App() {
     () => goals.find((g) => doneCountForGoal(g.id) === 0),
     [goals, tasks]
   );
+
+  const isFreshStart = goals.length === 0 && tasks.length === 0 && habits.length === 0;
+
+  function startOnboardingManual() {
+    setView("goals");
+    setShowAddGoal(true);
+  }
+
+  function startOnboardingWithAI() {
+    setView("chat");
+  }
 
   function toggleTask(id) {
     setTasks((prev) => prev.map((t) => (t.id === id ? { ...t, done: !t.done } : t)));
@@ -629,6 +613,9 @@ export default function App() {
             newTaskGoal={newTaskGoal}
             setNewTaskGoal={setNewTaskGoal}
             addTask={addTask}
+            isFreshStart={isFreshStart}
+            onStartOnboardingManual={startOnboardingManual}
+            onStartOnboardingWithAI={startOnboardingWithAI}
           />
         )}
 
@@ -790,6 +777,9 @@ function TodayView({
   newTaskGoal,
   setNewTaskGoal,
   addTask,
+  isFreshStart,
+  onStartOnboardingManual,
+  onStartOnboardingWithAI,
 }) {
   const today = new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
 
@@ -800,95 +790,120 @@ function TodayView({
         What moves you forward today
       </h1>
 
-      {neglectedGoal && (
-        <div
-          className="pga-card mb-6 px-4 py-3 flex items-start gap-3"
-          style={{ borderColor: "var(--clay)", background: "var(--clay-soft)" }}
-        >
-          <AssistantAvatar size={30} />
-          <p style={{ fontSize: "13.5px", color: "var(--ink)", paddingTop: "3px" }}>
-            "{neglectedGoal.title}" hasn't had a completed task this week. Worth a small step today, or a
-            look at whether the goal still fits.
+      {isFreshStart ? (
+        <div className="pga-card px-6 py-10 text-center">
+          <div className="flex justify-center mb-4">
+            <AssistantAvatar size={48} />
+          </div>
+          <h2 className="pga-heading mb-2" style={{ fontSize: "19px", fontWeight: 700 }}>
+            Let's set up your first goal
+          </h2>
+          <p className="mb-6" style={{ fontSize: "14px", color: "var(--ink-soft)", maxWidth: "440px", marginInline: "auto" }}>
+            Add your own goals, tasks, and habits yourself — or describe what you're working toward and let
+            Marvin build a starter plan for you.
           </p>
-        </div>
-      )}
-
-      <div className="pga-card mb-4">
-        {tasks.length === 0 && (
-          <div className="pga-empty">Nothing on the list yet. Add a task below to get started.</div>
-        )}
-        {tasks.map((t) => {
-          const goal = goalById(t.goalId);
-          return (
-            <div className="pga-task-row" key={t.id}>
-              <button onClick={() => toggleTask(t.id)} className="shrink-0" aria-label="Toggle task">
-                {t.done ? (
-                  <CheckCircle2 size={19} color="var(--success)" strokeWidth={1.75} />
-                ) : (
-                  <Circle size={19} color="var(--ink-soft)" strokeWidth={1.75} />
-                )}
-              </button>
-              <span
-                style={{
-                  fontSize: "14.5px",
-                  color: t.done ? "var(--ink-soft)" : "var(--ink)",
-                  textDecoration: t.done ? "line-through" : "none",
-                  flex: 1,
-                }}
-              >
-                {t.text}
-              </span>
-              {goal && (
-                <span className="pga-chip" style={{ background: goal.color + "22", color: goal.color }}>
-                  {goal.title.length > 22 ? goal.title.slice(0, 22) + "…" : goal.title}
-                </span>
-              )}
-              <button
-                onClick={() => removeTask(t.id)}
-                className="shrink-0"
-                aria-label="Remove task"
-                style={{ color: "var(--ink-soft)" }}
-              >
-                <X size={16} strokeWidth={1.75} />
-              </button>
-            </div>
-          );
-        })}
-      </div>
-
-      {showAddTask ? (
-        <div className="pga-card px-4 py-4">
-          <input
-            autoFocus
-            className="pga-input mb-2"
-            placeholder="What are you getting done?"
-            value={newTaskText}
-            onChange={(e) => setNewTaskText(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && addTask()}
-          />
-          <select
-            className="pga-input mb-3"
-            value={newTaskGoal}
-            onChange={(e) => setNewTaskGoal(e.target.value)}
-          >
-            <option value="">No linked goal</option>
-            {goals.map((g) => (
-              <option key={g.id} value={g.id}>{g.title}</option>
-            ))}
-          </select>
-          <div className="flex gap-2">
-            <button className="pga-btn-primary" onClick={addTask}>Add task</button>
-            <button className="pga-btn-ghost" onClick={() => setShowAddTask(false)}>Cancel</button>
+          <div className="flex flex-wrap justify-center gap-3">
+            <button className="pga-btn-primary" onClick={onStartOnboardingWithAI}>
+              Ask Marvin to plan it
+            </button>
+            <button className="pga-btn-ghost" onClick={onStartOnboardingManual}>
+              Add a goal myself
+            </button>
           </div>
         </div>
       ) : (
-        <button
-          className="flex items-center gap-2"
-          style={{ fontSize: "14px", color: "var(--ink-soft)" }}
-          onClick={() => setShowAddTask(true)}
-        >
-          <Plus size={16} /> Add a task
-        </button>
+        <>
+          {neglectedGoal && (
+            <div
+              className="pga-card mb-6 px-4 py-3 flex items-start gap-3"
+              style={{ borderColor: "var(--clay)", background: "var(--clay-soft)" }}
+            >
+              <AssistantAvatar size={30} />
+              <p style={{ fontSize: "13.5px", color: "var(--ink)", paddingTop: "3px" }}>
+                "{neglectedGoal.title}" hasn't had a completed task this week. Worth a small step today, or a
+                look at whether the goal still fits.
+              </p>
+            </div>
+          )}
+
+          <div className="pga-card mb-4">
+            {tasks.length === 0 && (
+              <div className="pga-empty">Nothing on the list yet. Add a task below to get started.</div>
+            )}
+            {tasks.map((t) => {
+              const goal = goalById(t.goalId);
+              return (
+                <div className="pga-task-row" key={t.id}>
+                  <button onClick={() => toggleTask(t.id)} className="shrink-0" aria-label="Toggle task">
+                    {t.done ? (
+                      <CheckCircle2 size={19} color="var(--success)" strokeWidth={1.75} />
+                    ) : (
+                      <Circle size={19} color="var(--ink-soft)" strokeWidth={1.75} />
+                    )}
+                  </button>
+                  <span
+                    style={{
+                      fontSize: "14.5px",
+                      color: t.done ? "var(--ink-soft)" : "var(--ink)",
+                      textDecoration: t.done ? "line-through" : "none",
+                      flex: 1,
+                    }}
+                  >
+                    {t.text}
+                  </span>
+                  {goal && (
+                    <span className="pga-chip" style={{ background: goal.color + "22", color: goal.color }}>
+                      {goal.title.length > 22 ? goal.title.slice(0, 22) + "…" : goal.title}
+                    </span>
+                  )}
+                  <button
+                    onClick={() => removeTask(t.id)}
+                    className="shrink-0"
+                    aria-label="Remove task"
+                    style={{ color: "var(--ink-soft)" }}
+                  >
+                    <X size={16} strokeWidth={1.75} />
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+
+          {showAddTask ? (
+            <div className="pga-card px-4 py-4">
+              <input
+                autoFocus
+                className="pga-input mb-2"
+                placeholder="What are you getting done?"
+                value={newTaskText}
+                onChange={(e) => setNewTaskText(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && addTask()}
+              />
+              <select
+                className="pga-input mb-3"
+                value={newTaskGoal}
+                onChange={(e) => setNewTaskGoal(e.target.value)}
+              >
+                <option value="">No linked goal</option>
+                {goals.map((g) => (
+                  <option key={g.id} value={g.id}>{g.title}</option>
+                ))}
+              </select>
+              <div className="flex gap-2">
+                <button className="pga-btn-primary" onClick={addTask}>Add task</button>
+                <button className="pga-btn-ghost" onClick={() => setShowAddTask(false)}>Cancel</button>
+              </div>
+            </div>
+          ) : (
+            <button
+              className="flex items-center gap-2"
+              style={{ fontSize: "14px", color: "var(--ink-soft)" }}
+              onClick={() => setShowAddTask(true)}
+            >
+              <Plus size={16} /> Add a task
+            </button>
+          )}
+        </>
       )}
     </div>
   );
@@ -965,6 +980,7 @@ function ChatView({ messages, input, setInput, loading, error, onSend }) {
 
       <div className="flex gap-2">
         <input
+          autoFocus
           className="pga-input"
           placeholder="Message Marvin…"
           value={input}
@@ -999,6 +1015,12 @@ function GoalsView({
       <p className="mb-6" style={{ fontSize: "13.5px", color: "var(--ink-soft)" }}>
         Every task you tag to a goal counts here, automatically.
       </p>
+
+      {goals.length === 0 && (
+        <div className="pga-card mb-5">
+          <div className="pga-empty">No goals yet. Add one below, or ask Marvin in Chat to help you set one up.</div>
+        </div>
+      )}
 
       <div className="flex flex-col gap-3 mb-5">
         {goals.map((g) => {
@@ -1155,7 +1177,7 @@ function HabitsView({
 
       <div className="pga-card mb-4">
         {habits.length === 0 && (
-          <div className="pga-empty">No habits yet. Add one below to start tracking.</div>
+          <div className="pga-empty">No habits yet. Add one below, or ask Marvin in Chat to suggest some.</div>
         )}
         {habits.map((h) => (
           <div className="pga-task-row" key={h.id}>
