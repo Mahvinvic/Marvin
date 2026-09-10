@@ -1,5 +1,3 @@
-import "dotenv/config";
-import express from "express";
 import OpenAI from "openai";
 
 const MODEL = process.env.NVIDIA_NIM_MODEL || "nvidia/nemotron-3-super-120b-a12b";
@@ -131,12 +129,14 @@ const client = new OpenAI({
   baseURL: "https://integrate.api.nvidia.com/v1",
 });
 
-const app = express();
-app.use(express.json({ limit: "1mb" }));
+export default async function handler(req, res) {
+  if (req.method !== "POST") {
+    res.status(405).json({ error: "Method not allowed" });
+    return;
+  }
 
-app.post("/api/chat", async (req, res) => {
   if (!process.env.NVIDIA_API_KEY) {
-    res.status(500).json({ error: "Server is missing NVIDIA_API_KEY. Add it to .env and restart the server." });
+    res.status(500).json({ error: "Server is missing NVIDIA_API_KEY. Set it in the project's environment variables." });
     return;
   }
 
@@ -166,9 +166,9 @@ app.post("/api/chat", async (req, res) => {
 
     const message = response.choices[0]?.message;
     if (message?.tool_calls?.length) {
-      res.json({ reply: message.content ?? null, toolCalls: message.tool_calls.slice(0, 12) });
+      res.status(200).json({ reply: message.content ?? null, toolCalls: message.tool_calls.slice(0, 12) });
     } else {
-      res.json({ reply: message?.content ?? "" });
+      res.status(200).json({ reply: message?.content ?? "" });
     }
   } catch (err) {
     console.error("NVIDIA NIM API error:", err);
@@ -184,12 +184,4 @@ app.post("/api/chat", async (req, res) => {
       res.status(500).json({ error: "Something went wrong talking to Marvin." });
     }
   }
-});
-
-const PORT = process.env.PORT || 8787;
-app.listen(PORT, () => {
-  console.log(`Marvin chat server listening on http://localhost:${PORT}`);
-  if (!process.env.NVIDIA_API_KEY) {
-    console.warn("Warning: NVIDIA_API_KEY is not set. Chat requests will fail until you add it to .env.");
-  }
-});
+}
