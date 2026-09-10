@@ -211,12 +211,98 @@ export default function App() {
   }
 
   function buildAppContext() {
-    const goalLines = goals
-      .map((g) => `- ${g.title} (${doneCountForGoal(g.id)}/${g.target} tasks done this week)`)
-      .join("\n");
-    const taskLines = tasks.map((t) => `- [${t.done ? "x" : " "}] ${t.text}`).join("\n");
-    const habitLines = habits.map((h) => `- [${h.done ? "x" : " "}] ${h.title}`).join("\n");
-    return `Goals:\n${goalLines || "(none)"}\n\nToday's tasks:\n${taskLines || "(none)"}\n\nDaily habits:\n${habitLines || "(none)"}`;
+    return JSON.stringify({
+      goals: goals.map((g) => ({ id: g.id, title: g.title, target: g.target, doneThisWeek: doneCountForGoal(g.id) })),
+      tasks: tasks.map((t) => ({ id: t.id, text: t.text, goalId: t.goalId, done: t.done })),
+      habits: habits.map((h) => ({ id: h.id, title: h.title, done: h.done })),
+    });
+  }
+
+  function addTaskDirect(text, goalId) {
+    if (!text || !text.trim()) return "No task text given.";
+    const id = `t${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    setTasks((prev) => [{ id, text: text.trim(), goalId: goalId || null, done: false }, ...prev]);
+    return `Added task "${text.trim()}".`;
+  }
+
+  function removeTaskDirect(id) {
+    const task = tasks.find((t) => t.id === id);
+    if (!task) return `No task with id "${id}" found.`;
+    removeTask(id);
+    return `Removed task "${task.text}".`;
+  }
+
+  function setTaskDoneDirect(id, done) {
+    const task = tasks.find((t) => t.id === id);
+    if (!task) return `No task with id "${id}" found.`;
+    setTasks((prev) => prev.map((t) => (t.id === id ? { ...t, done: !!done } : t)));
+    return `Marked task "${task.text}" as ${done ? "done" : "not done"}.`;
+  }
+
+  function addGoalDirect(title, target) {
+    if (!title || !title.trim()) return "No goal title given.";
+    const palette = ["#34C759", "#FF9500", "#5856D6", "#FF2D55", "#30B0C7"];
+    const color = palette[goals.length % palette.length];
+    const id = `g${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    setGoals((prev) => [...prev, { id, title: title.trim(), target: target > 0 ? target : 3, color, media: null }]);
+    return `Added goal "${title.trim()}".`;
+  }
+
+  function removeGoalDirect(id) {
+    const goal = goals.find((g) => g.id === id);
+    if (!goal) return `No goal with id "${id}" found.`;
+    removeGoal(id);
+    return `Removed goal "${goal.title}".`;
+  }
+
+  function addHabitDirect(title) {
+    if (!title || !title.trim()) return "No habit title given.";
+    const id = `h${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    setHabits((prev) => [...prev, { id, title: title.trim(), done: false }]);
+    return `Added habit "${title.trim()}".`;
+  }
+
+  function removeHabitDirect(id) {
+    const habit = habits.find((h) => h.id === id);
+    if (!habit) return `No habit with id "${id}" found.`;
+    removeHabit(id);
+    return `Removed habit "${habit.title}".`;
+  }
+
+  function setHabitDoneDirect(id, done) {
+    const habit = habits.find((h) => h.id === id);
+    if (!habit) return `No habit with id "${id}" found.`;
+    setHabits((prev) => prev.map((h) => (h.id === id ? { ...h, done: !!done } : h)));
+    return `Marked habit "${habit.title}" as ${done ? "done" : "not done"}.`;
+  }
+
+  function executeToolCall(call) {
+    let args = {};
+    try {
+      args = JSON.parse(call.function.arguments || "{}");
+    } catch {
+      return "Couldn't parse that action's arguments.";
+    }
+    switch (call.function.name) {
+      case "add_task":
+        return addTaskDirect(args.text, args.goalId);
+      case "remove_task":
+        return removeTaskDirect(args.id);
+      case "set_task_done":
+        return setTaskDoneDirect(args.id, args.done);
+      case "add_goal":
+        return addGoalDirect(args.title, args.target);
+      case "remove_goal":
+        return removeGoalDirect(args.id);
+      case "add_habit":
+        return addHabitDirect(args.title);
+      case "remove_habit":
+        return removeHabitDirect(args.id);
+      case "set_habit_done":
+        return setHabitDoneDirect(args.id, args.done);
+      default:
+        return `Unknown action "${call.function.name}".`;
+    }
   }
 
   async function sendChatMessage() {
@@ -230,14 +316,39 @@ export default function App() {
     setChatLoading(true);
 
     try {
+      const context = buildAppContext();
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: nextMessages, context: buildAppContext() }),
+        body: JSON.stringify({ messages: nextMessages, context }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Something went wrong.");
-      setChatMessages((prev) => [...prev, { role: "assistant", content: data.reply }]);
+
+      if (data.toolCalls?.length) {
+        const toolResults = data.toolCalls.map((call) => ({
+          role: "tool",
+          tool_call_id: call.id,
+          content: executeToolCall(call),
+        }));
+
+        const followUpMessages = [
+          ...nextMessages,
+          { role: "assistant", content: data.reply ?? null, tool_calls: data.toolCalls },
+          ...toolResults,
+        ];
+
+        const res2 = await fetch("/api/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ messages: followUpMessages, context, toolChoice: "none" }),
+        });
+        const data2 = await res2.json();
+        if (!res2.ok) throw new Error(data2.error || "Something went wrong.");
+        setChatMessages((prev) => [...prev, { role: "assistant", content: data2.reply }]);
+      } else {
+        setChatMessages((prev) => [...prev, { role: "assistant", content: data.reply }]);
+      }
     } catch (err) {
       setChatError(err.message || "Couldn't reach Marvin. Is the chat server running?");
     } finally {
@@ -742,7 +853,7 @@ function ChatView({ messages, input, setInput, loading, error, onSend }) {
     <div className="flex flex-col" style={{ height: "calc(100vh - 140px)", minHeight: "420px" }}>
       <h1 className="pga-heading mb-1" style={{ fontSize: "28px", fontWeight: 700 }}>Ask Marvin</h1>
       <p className="mb-4" style={{ fontSize: "13.5px", color: "var(--ink-soft)" }}>
-        Your assistant can see today's tasks, goals, and habits.
+        Your assistant can see — and change — today's tasks, goals, and habits.
       </p>
 
       <div
@@ -750,7 +861,9 @@ function ChatView({ messages, input, setInput, loading, error, onSend }) {
         style={{ display: "flex", flexDirection: "column", gap: "10px" }}
       >
         {messages.length === 0 && (
-          <div className="pga-empty">Ask about your goals, get unstuck on a task, or just check in.</div>
+          <div className="pga-empty">
+            Ask about your goals, or tell Marvin to add, complete, or remove a task, goal, or habit.
+          </div>
         )}
         {messages.map((m, i) => (
           <div key={i} style={{ display: "flex", justifyContent: m.role === "user" ? "flex-end" : "flex-start" }}>
