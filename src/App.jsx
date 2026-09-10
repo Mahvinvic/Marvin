@@ -11,6 +11,7 @@ import {
   HeartPulse,
   Image as ImageIcon,
   Bell,
+  MessageCircle,
 } from "lucide-react";
 
 const NAG_INTERVAL_MS = 30 * 60 * 1000;
@@ -56,6 +57,7 @@ const trendWeeks = [
 
 const NAV = [
   { id: "today", label: "Today", icon: ListTodo },
+  { id: "chat", label: "Chat", icon: MessageCircle },
   { id: "goals", label: "Goals", icon: Target },
   { id: "habits", label: "Habits", icon: HeartPulse },
   { id: "reflect", label: "Reflect", icon: MessageSquareText },
@@ -125,6 +127,11 @@ export default function App() {
     typeof window !== "undefined" && "Notification" in window ? Notification.permission : "unsupported"
   );
   const [nagHabit, setNagHabit] = useState(null);
+
+  const [chatMessages, setChatMessages] = useState([]);
+  const [chatInput, setChatInput] = useState("");
+  const [chatLoading, setChatLoading] = useState(false);
+  const [chatError, setChatError] = useState(null);
 
   const habitsRef = useRef(habits);
   useEffect(() => {
@@ -201,6 +208,41 @@ export default function App() {
   function requestNotifPermission() {
     if (typeof window === "undefined" || !("Notification" in window)) return;
     Notification.requestPermission().then(setNotifPermission);
+  }
+
+  function buildAppContext() {
+    const goalLines = goals
+      .map((g) => `- ${g.title} (${doneCountForGoal(g.id)}/${g.target} tasks done this week)`)
+      .join("\n");
+    const taskLines = tasks.map((t) => `- [${t.done ? "x" : " "}] ${t.text}`).join("\n");
+    const habitLines = habits.map((h) => `- [${h.done ? "x" : " "}] ${h.title}`).join("\n");
+    return `Goals:\n${goalLines || "(none)"}\n\nToday's tasks:\n${taskLines || "(none)"}\n\nDaily habits:\n${habitLines || "(none)"}`;
+  }
+
+  async function sendChatMessage() {
+    const text = chatInput.trim();
+    if (!text || chatLoading) return;
+
+    const nextMessages = [...chatMessages, { role: "user", content: text }];
+    setChatMessages(nextMessages);
+    setChatInput("");
+    setChatError(null);
+    setChatLoading(true);
+
+    try {
+      const res = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messages: nextMessages, context: buildAppContext() }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Something went wrong.");
+      setChatMessages((prev) => [...prev, { role: "assistant", content: data.reply }]);
+    } catch (err) {
+      setChatError(err.message || "Couldn't reach Waypoint. Is the chat server running?");
+    } finally {
+      setChatLoading(false);
+    }
   }
 
   function addTask() {
@@ -424,6 +466,17 @@ export default function App() {
             newTaskGoal={newTaskGoal}
             setNewTaskGoal={setNewTaskGoal}
             addTask={addTask}
+          />
+        )}
+
+        {view === "chat" && (
+          <ChatView
+            messages={chatMessages}
+            input={chatInput}
+            setInput={setChatInput}
+            loading={chatLoading}
+            error={chatError}
+            onSend={sendChatMessage}
           />
         )}
 
@@ -674,6 +727,89 @@ function TodayView({
           <Plus size={16} /> Add a task
         </button>
       )}
+    </div>
+  );
+}
+
+function ChatView({ messages, input, setInput, loading, error, onSend }) {
+  const bottomRef = useRef(null);
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+  }, [messages, loading]);
+
+  return (
+    <div className="flex flex-col" style={{ height: "calc(100vh - 140px)", minHeight: "420px" }}>
+      <h1 className="pga-heading mb-1" style={{ fontSize: "28px", fontWeight: 700 }}>Ask Waypoint</h1>
+      <p className="mb-4" style={{ fontSize: "13.5px", color: "var(--ink-soft)" }}>
+        Your assistant can see today's tasks, goals, and habits.
+      </p>
+
+      <div
+        className="pga-card flex-1 overflow-y-auto px-4 py-4 mb-3"
+        style={{ display: "flex", flexDirection: "column", gap: "10px" }}
+      >
+        {messages.length === 0 && (
+          <div className="pga-empty">Ask about your goals, get unstuck on a task, or just check in.</div>
+        )}
+        {messages.map((m, i) => (
+          <div key={i} style={{ display: "flex", justifyContent: m.role === "user" ? "flex-end" : "flex-start" }}>
+            <div
+              style={{
+                maxWidth: "78%",
+                padding: "9px 13px",
+                borderRadius: "18px",
+                fontSize: "14.5px",
+                lineHeight: 1.4,
+                background: m.role === "user" ? "var(--accent)" : "var(--surface-2)",
+                color: m.role === "user" ? "#fff" : "var(--ink)",
+                whiteSpace: "pre-wrap",
+              }}
+            >
+              {m.content}
+            </div>
+          </div>
+        ))}
+        {loading && (
+          <div style={{ display: "flex", justifyContent: "flex-start" }}>
+            <div
+              style={{
+                padding: "9px 13px",
+                borderRadius: "18px",
+                background: "var(--surface-2)",
+                fontSize: "14.5px",
+                color: "var(--ink-soft)",
+              }}
+            >
+              Waypoint is typing…
+            </div>
+          </div>
+        )}
+        <div ref={bottomRef} />
+      </div>
+
+      {error && (
+        <div
+          className="pga-card mb-3 px-4 py-3"
+          style={{ fontSize: "13px", color: "var(--danger)", borderColor: "var(--danger)" }}
+        >
+          {error}
+        </div>
+      )}
+
+      <div className="flex gap-2">
+        <input
+          className="pga-input"
+          placeholder="Message Waypoint…"
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && onSend()}
+          disabled={loading}
+        />
+        <button className="pga-btn-primary" onClick={onSend} disabled={loading || !input.trim()}>
+          Send
+        </button>
+      </div>
     </div>
   );
 }
