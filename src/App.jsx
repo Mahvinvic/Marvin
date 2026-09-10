@@ -120,6 +120,10 @@ export default function App() {
     setTasks((prev) => prev.map((t) => (t.id === id ? { ...t, done: !t.done } : t)));
   }
 
+  function removeTask(id) {
+    setTasks((prev) => prev.filter((t) => t.id !== id));
+  }
+
   function addTask() {
     if (!newTaskText.trim()) return;
     setTasks((prev) => [
@@ -281,6 +285,7 @@ export default function App() {
             goals={goals}
             goalById={goalById}
             toggleTask={toggleTask}
+            removeTask={removeTask}
             neglectedGoal={neglectedGoal}
             showAddTask={showAddTask}
             setShowAddTask={setShowAddTask}
@@ -347,6 +352,7 @@ function TodayView({
   goals,
   goalById,
   toggleTask,
+  removeTask,
   neglectedGoal,
   showAddTask,
   setShowAddTask,
@@ -408,6 +414,14 @@ function TodayView({
                   {goal.title.length > 22 ? goal.title.slice(0, 22) + "…" : goal.title}
                 </span>
               )}
+              <button
+                onClick={() => removeTask(t.id)}
+                className="shrink-0"
+                aria-label="Remove task"
+                style={{ color: "var(--ink-soft)" }}
+              >
+                <X size={16} strokeWidth={1.75} />
+              </button>
             </div>
           );
         })}
