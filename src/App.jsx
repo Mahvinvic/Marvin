@@ -239,7 +239,7 @@ export default function App() {
       if (!res.ok) throw new Error(data.error || "Something went wrong.");
       setChatMessages((prev) => [...prev, { role: "assistant", content: data.reply }]);
     } catch (err) {
-      setChatError(err.message || "Couldn't reach Waypoint. Is the chat server running?");
+      setChatError(err.message || "Couldn't reach Marvin. Is the chat server running?");
     } finally {
       setChatLoading(false);
     }
@@ -429,7 +429,7 @@ export default function App() {
           <AssistantAvatar size={34} />
           <div>
             <div className="pga-heading" style={{ fontSize: "17px", fontWeight: 700, lineHeight: 1.1 }}>
-              Waypoint
+              Marvin
             </div>
             <div style={{ fontSize: "11.5px", color: "var(--ink-soft)" }}>your assistant</div>
           </div>
@@ -584,7 +584,7 @@ function NagToast({ habit, onComplete, onDismiss }) {
     >
       <div className="flex items-center gap-2 mb-1.5">
         <AssistantAvatar size={22} />
-        <span style={{ fontSize: "13px", fontWeight: 700, color: "var(--ink)", flex: 1 }}>Waypoint</span>
+        <span style={{ fontSize: "13px", fontWeight: 700, color: "var(--ink)", flex: 1 }}>Marvin</span>
         <span style={{ fontSize: "12px", color: "var(--ink-soft)" }}>now</span>
         <button onClick={onDismiss} aria-label="Dismiss" style={{ color: "var(--ink-soft)" }}>
           <X size={14} strokeWidth={2} />
@@ -740,7 +740,7 @@ function ChatView({ messages, input, setInput, loading, error, onSend }) {
 
   return (
     <div className="flex flex-col" style={{ height: "calc(100vh - 140px)", minHeight: "420px" }}>
-      <h1 className="pga-heading mb-1" style={{ fontSize: "28px", fontWeight: 700 }}>Ask Waypoint</h1>
+      <h1 className="pga-heading mb-1" style={{ fontSize: "28px", fontWeight: 700 }}>Ask Marvin</h1>
       <p className="mb-4" style={{ fontSize: "13.5px", color: "var(--ink-soft)" }}>
         Your assistant can see today's tasks, goals, and habits.
       </p>
@@ -781,7 +781,7 @@ function ChatView({ messages, input, setInput, loading, error, onSend }) {
                 color: "var(--ink-soft)",
               }}
             >
-              Waypoint is typing…
+              Marvin is typing…
             </div>
           </div>
         )}
@@ -800,7 +800,7 @@ function ChatView({ messages, input, setInput, loading, error, onSend }) {
       <div className="flex gap-2">
         <input
           className="pga-input"
-          placeholder="Message Waypoint…"
+          placeholder="Message Marvin…"
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && onSend()}
@@ -964,7 +964,7 @@ function HabitsView({
     <div>
       <h1 className="pga-heading mb-1" style={{ fontSize: "28px", fontWeight: 700 }}>Daily habits</h1>
       <p className="mb-6" style={{ fontSize: "13.5px", color: "var(--ink-soft)" }}>
-        {doneCount} / {habits.length} done today. Leave one unchecked and Waypoint will keep nudging you.
+        {doneCount} / {habits.length} done today. Leave one unchecked and Marvin will keep nudging you.
       </p>
 
       {notifPermission === "default" && (
@@ -983,7 +983,7 @@ function HabitsView({
       )}
       {notifPermission === "denied" && (
         <div className="pga-card mb-4 px-4 py-3" style={{ fontSize: "12.5px", color: "var(--ink-soft)" }}>
-          Notifications are blocked. Waypoint will still nudge you in-app while it's open.
+          Notifications are blocked. Marvin will still nudge you in-app while it's open.
         </div>
       )}
 

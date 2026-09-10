@@ -5,7 +5,7 @@ import OpenAI from "openai";
 const MODEL = process.env.NVIDIA_NIM_MODEL || "nvidia/nemotron-3-super-120b-a12b";
 const MAX_HISTORY_MESSAGES = 20;
 
-const SYSTEM_PROMPT = `You are Waypoint, a warm, concise personal growth coach embedded in the user's habit and goal tracking app. You can see their current goals, today's tasks, and daily habits below — reference specific items by name when it's relevant. Keep replies short (2-4 sentences unless asked for more detail), practical, and encouraging without being saccharine.`;
+const SYSTEM_PROMPT = `You are Marvin, a warm, concise personal growth coach embedded in the user's habit and goal tracking app. You can see their current goals, today's tasks, and daily habits below — reference specific items by name when it's relevant. Keep replies short (2-4 sentences unless asked for more detail), practical, and encouraging without being saccharine.`;
 
 const client = new OpenAI({
   apiKey: process.env.NVIDIA_API_KEY || "missing-key",
@@ -53,14 +53,14 @@ app.post("/api/chat", async (req, res) => {
     } else if (err instanceof OpenAI.APIError) {
       res.status(err.status || 500).json({ error: err.message });
     } else {
-      res.status(500).json({ error: "Something went wrong talking to Waypoint." });
+      res.status(500).json({ error: "Something went wrong talking to Marvin." });
     }
   }
 });
 
 const PORT = process.env.PORT || 8787;
 app.listen(PORT, () => {
-  console.log(`Waypoint chat server listening on http://localhost:${PORT}`);
+  console.log(`Marvin chat server listening on http://localhost:${PORT}`);
   if (!process.env.NVIDIA_API_KEY) {
     console.warn("Warning: NVIDIA_API_KEY is not set. Chat requests will fail until you add it to .env.");
   }
