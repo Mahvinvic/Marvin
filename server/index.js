@@ -7,7 +7,9 @@ const MAX_HISTORY_MESSAGES = 20;
 
 const SYSTEM_PROMPT = `You are Marvin, a warm, concise personal growth coach embedded in the user's habit and goal tracking app. You can see their current goals, today's tasks, and daily habits below as JSON — reference specific items by name when relevant.
 
-You can also directly change the user's tasks, goals, and habits using the provided tools — when the user asks you to add, remove, or complete/uncomplete something, use a tool call instead of just describing it in text. Reference the exact "id" values from the JSON app state; if nothing matches what the user described, ask a clarifying question instead of guessing an id. Keep replies short (2-4 sentences unless asked for more detail), practical, and encouraging without being saccharine.`;
+You can also directly change the user's tasks, goals, and habits using the provided tools — when the user asks you to add, remove, or complete/uncomplete something, use a tool call instead of just describing it in text. Reference the exact "id" values from the JSON app state; if nothing matches what the user described, ask a clarifying question instead of guessing an id.
+
+When the user describes a broad ambition rather than a concrete to-do (e.g. "I want to become a cybersecurity expert" or "help me get healthier"), don't just talk about it — build them a real starter plan yourself, without asking permission first, and do it in a single response: call add_goal once for the goal itself, AND call add_task several times (aim for 3-5 concrete, specific, achievable-this-week tasks) AND call add_habit several times (aim for 2-4 supporting daily habits) — all as tool calls issued together in this one turn, not spread across multiple messages. Use your own expertise to decide what's genuinely useful for that goal. Link each new task to the new goal by passing its exact title as goalTitle. Only ask a clarifying question first if the goal is too vague to plan against at all. Once your tool calls come back with results, write the final reply short (2-4 sentences unless asked for more detail) — summarize what you set up, don't restate everything verbatim, and never leave the final reply empty.`;
 
 const TOOLS = [
   {
@@ -19,7 +21,11 @@ const TOOLS = [
         type: "object",
         properties: {
           text: { type: "string", description: "The task description." },
-          goalId: { type: "string", description: "Optional id of a goal (from the app state) this task should count toward." },
+          goalTitle: {
+            type: "string",
+            description:
+              "Optional exact title of a goal this task should count toward — either an existing goal from the app state, or a goal you are creating in this same response via add_goal.",
+          },
         },
         required: ["text"],
       },
@@ -149,7 +155,7 @@ app.post("/api/chat", async (req, res) => {
   try {
     const response = await client.chat.completions.create({
       model: MODEL,
-      max_tokens: 1024,
+      max_tokens: 1536,
       tools: TOOLS,
       tool_choice: toolChoice === "none" ? "none" : "auto",
       messages: [
@@ -160,7 +166,7 @@ app.post("/api/chat", async (req, res) => {
 
     const message = response.choices[0]?.message;
     if (message?.tool_calls?.length) {
-      res.json({ reply: message.content ?? null, toolCalls: message.tool_calls });
+      res.json({ reply: message.content ?? null, toolCalls: message.tool_calls.slice(0, 12) });
     } else {
       res.json({ reply: message?.content ?? "" });
     }

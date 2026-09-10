@@ -240,12 +240,12 @@ export default function App() {
   }
 
   function addGoalDirect(title, target) {
-    if (!title || !title.trim()) return "No goal title given.";
+    if (!title || !title.trim()) return { message: "No goal title given.", id: null };
     const palette = ["#34C759", "#FF9500", "#5856D6", "#FF2D55", "#30B0C7"];
     const color = palette[goals.length % palette.length];
     const id = `g${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
     setGoals((prev) => [...prev, { id, title: title.trim(), target: target > 0 ? target : 3, color, media: null }]);
-    return `Added goal "${title.trim()}".`;
+    return { message: `Added goal "${title.trim()}".`, id };
   }
 
   function removeGoalDirect(id) {
@@ -276,33 +276,75 @@ export default function App() {
     return `Marked habit "${habit.title}" as ${done ? "done" : "not done"}.`;
   }
 
-  function executeToolCall(call) {
-    let args = {};
-    try {
-      args = JSON.parse(call.function.arguments || "{}");
-    } catch {
-      return "Couldn't parse that action's arguments.";
+  function executeToolCalls(toolCalls, titleToNewGoalId) {
+    const results = new Map();
+
+    // Pass 1: create goals first, so tasks in the same batch can link to a
+    // goal that didn't exist until this response. titleToNewGoalId is shared
+    // across every round of one chat turn, since a goal created in an earlier
+    // round still needs to be linkable by tasks added in a later round.
+    for (const call of toolCalls) {
+      if (call.function.name !== "add_goal") continue;
+      let args = {};
+      try {
+        args = JSON.parse(call.function.arguments || "{}");
+      } catch {
+        results.set(call.id, "Couldn't parse that action's arguments.");
+        continue;
+      }
+      const { message, id } = addGoalDirect(args.title, args.target);
+      if (id && args.title) titleToNewGoalId[args.title.trim().toLowerCase()] = id;
+      results.set(call.id, message);
     }
-    switch (call.function.name) {
-      case "add_task":
-        return addTaskDirect(args.text, args.goalId);
-      case "remove_task":
-        return removeTaskDirect(args.id);
-      case "set_task_done":
-        return setTaskDoneDirect(args.id, args.done);
-      case "add_goal":
-        return addGoalDirect(args.title, args.target);
-      case "remove_goal":
-        return removeGoalDirect(args.id);
-      case "add_habit":
-        return addHabitDirect(args.title);
-      case "remove_habit":
-        return removeHabitDirect(args.id);
-      case "set_habit_done":
-        return setHabitDoneDirect(args.id, args.done);
-      default:
-        return `Unknown action "${call.function.name}".`;
+
+    // Pass 2: everything else.
+    for (const call of toolCalls) {
+      if (call.function.name === "add_goal") continue;
+      let args = {};
+      try {
+        args = JSON.parse(call.function.arguments || "{}");
+      } catch {
+        results.set(call.id, "Couldn't parse that action's arguments.");
+        continue;
+      }
+      switch (call.function.name) {
+        case "add_task": {
+          let goalId = null;
+          if (args.goalTitle) {
+            const key = args.goalTitle.trim().toLowerCase();
+            goalId = titleToNewGoalId[key] || goals.find((g) => g.title.toLowerCase() === key)?.id || null;
+          }
+          results.set(call.id, addTaskDirect(args.text, goalId));
+          break;
+        }
+        case "remove_task":
+          results.set(call.id, removeTaskDirect(args.id));
+          break;
+        case "set_task_done":
+          results.set(call.id, setTaskDoneDirect(args.id, args.done));
+          break;
+        case "remove_goal":
+          results.set(call.id, removeGoalDirect(args.id));
+          break;
+        case "add_habit":
+          results.set(call.id, addHabitDirect(args.title));
+          break;
+        case "remove_habit":
+          results.set(call.id, removeHabitDirect(args.id));
+          break;
+        case "set_habit_done":
+          results.set(call.id, setHabitDoneDirect(args.id, args.done));
+          break;
+        default:
+          results.set(call.id, `Unknown action "${call.function.name}".`);
+      }
     }
+
+    return toolCalls.map((call) => ({
+      role: "tool",
+      tool_call_id: call.id,
+      content: results.get(call.id) ?? "No result.",
+    }));
   }
 
   async function sendChatMessage() {
@@ -315,40 +357,50 @@ export default function App() {
     setChatError(null);
     setChatLoading(true);
 
+    const MAX_ROUNDS = 6;
+
     try {
       const context = buildAppContext();
-      const res = await fetch("/api/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: nextMessages, context }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Something went wrong.");
+      const titleToNewGoalId = {};
+      let wireMessages = nextMessages;
+      let finalReply = "";
 
-      if (data.toolCalls?.length) {
-        const toolResults = data.toolCalls.map((call) => ({
-          role: "tool",
-          tool_call_id: call.id,
-          content: executeToolCall(call),
-        }));
-
-        const followUpMessages = [
-          ...nextMessages,
-          { role: "assistant", content: data.reply ?? null, tool_calls: data.toolCalls },
-          ...toolResults,
-        ];
-
-        const res2 = await fetch("/api/chat", {
+      for (let round = 0; round < MAX_ROUNDS; round++) {
+        const isLastRound = round === MAX_ROUNDS - 1;
+        const res = await fetch("/api/chat", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ messages: followUpMessages, context, toolChoice: "none" }),
+          body: JSON.stringify({ messages: wireMessages, context, toolChoice: isLastRound ? "none" : "auto" }),
         });
-        const data2 = await res2.json();
-        if (!res2.ok) throw new Error(data2.error || "Something went wrong.");
-        setChatMessages((prev) => [...prev, { role: "assistant", content: data2.reply }]);
-      } else {
-        setChatMessages((prev) => [...prev, { role: "assistant", content: data.reply }]);
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Something went wrong.");
+
+        if (data.toolCalls?.length && !isLastRound) {
+          const toolResults = executeToolCalls(data.toolCalls, titleToNewGoalId);
+          wireMessages = [
+            ...wireMessages,
+            { role: "assistant", content: data.reply ?? null, tool_calls: data.toolCalls },
+            ...toolResults,
+          ];
+          continue;
+        }
+
+        finalReply = data.reply || "";
+        break;
       }
+
+      if (!finalReply) {
+        wireMessages = [...wireMessages, { role: "user", content: "Summarize what you just set up for me, in 2-3 sentences." }];
+        const res = await fetch("/api/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ messages: wireMessages, context, toolChoice: "none" }),
+        });
+        const data = await res.json();
+        if (res.ok) finalReply = data.reply || "";
+      }
+
+      setChatMessages((prev) => [...prev, { role: "assistant", content: finalReply || "Done." }]);
     } catch (err) {
       setChatError(err.message || "Couldn't reach Marvin. Is the chat server running?");
     } finally {
@@ -862,7 +914,8 @@ function ChatView({ messages, input, setInput, loading, error, onSend }) {
       >
         {messages.length === 0 && (
           <div className="pga-empty">
-            Ask about your goals, or tell Marvin to add, complete, or remove a task, goal, or habit.
+            Ask about your goals, tell Marvin to add or complete a task, goal, or habit — or just describe a
+            big goal ("I want to learn cybersecurity") and let Marvin build the plan for you.
           </div>
         )}
         {messages.map((m, i) => (
