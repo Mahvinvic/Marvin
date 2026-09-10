@@ -422,7 +422,7 @@ export default function App() {
   }
 
   return (
-    <div className="pga-app min-h-screen w-full flex">
+    <div className="pga-app min-h-dvh w-full flex">
       <style>{`
         .pga-app {
           --bg: #F2F2F7;
@@ -565,6 +565,30 @@ export default function App() {
           to { opacity: 1; transform: translate(-50%, 0); }
         }
         .pga-banner-in { animation: pgaSlideDown 0.35s cubic-bezier(0.2, 0.9, 0.3, 1) forwards; }
+
+        .pga-main {
+          padding-bottom: calc(88px + env(safe-area-inset-bottom, 0px));
+        }
+        @media (min-width: 640px) {
+          .pga-main { padding-bottom: 2.5rem; }
+        }
+
+        .pga-app,
+        .pga-app * {
+          -webkit-tap-highlight-color: transparent;
+        }
+        .pga-app button,
+        .pga-app input,
+        .pga-app select,
+        .pga-app textarea {
+          touch-action: manipulation;
+        }
+        .pga-app button,
+        .pga-nav-btn,
+        .pga-segment button {
+          -webkit-user-select: none;
+          user-select: none;
+        }
       `}</style>
 
       {/* Sidebar */}
@@ -597,7 +621,7 @@ export default function App() {
       </aside>
 
       {/* Main */}
-      <main className="flex-1 px-5 pt-7 pb-24 sm:px-10 sm:py-10 sm:pb-10 max-w-2xl">
+      <main className="pga-main flex-1 px-5 pt-7 sm:px-10 sm:pt-10 max-w-2xl">
         {view === "today" && (
           <TodayView
             tasks={tasks}
@@ -917,7 +941,7 @@ function ChatView({ messages, input, setInput, loading, error, onSend }) {
   }, [messages, loading]);
 
   return (
-    <div className="flex flex-col" style={{ height: "calc(100vh - 140px)", minHeight: "420px" }}>
+    <div className="flex flex-col" style={{ height: "calc(100dvh - 140px)", minHeight: "420px" }}>
       <h1 className="pga-heading mb-1" style={{ fontSize: "28px", fontWeight: 700 }}>Ask Marvin</h1>
       <p className="mb-4" style={{ fontSize: "13.5px", color: "var(--ink-soft)" }}>
         Your assistant can see — and change — today's tasks, goals, and habits.
@@ -925,7 +949,7 @@ function ChatView({ messages, input, setInput, loading, error, onSend }) {
 
       <div
         className="pga-card flex-1 overflow-y-auto px-4 py-4 mb-3"
-        style={{ display: "flex", flexDirection: "column", gap: "10px" }}
+        style={{ display: "flex", flexDirection: "column", gap: "10px", overscrollBehavior: "contain" }}
       >
         {messages.length === 0 && (
           <div className="pga-empty">
