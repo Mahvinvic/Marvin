@@ -1,4 +1,4 @@
-import { getUserRecord, saveUserRecord } from "../_store.js";
+import { getUserRecord, saveUserRecord, resolveAccountKey } from "../_store.js";
 import { runMarvinTurn } from "../_agent.js";
 
 const VERIFY_TOKEN = process.env.WHATSAPP_VERIFY_TOKEN;
@@ -55,7 +55,8 @@ export default async function handler(req, res) {
     const text = message.text?.body?.trim();
     if (!from || !text) return;
 
-    const record = await getUserRecord(from);
+    const accountKey = await resolveAccountKey(from);
+    const record = await getUserRecord(accountKey);
     const history = (record.chatHistory || []).slice(-MAX_CHAT_HISTORY);
 
     const { finalReply, newState } = await runMarvinTurn(
@@ -68,7 +69,7 @@ export default async function handler(req, res) {
       -MAX_CHAT_HISTORY
     );
 
-    await saveUserRecord(from, { ...record, ...newState, chatHistory: updatedHistory });
+    await saveUserRecord(accountKey, { ...record, ...newState, chatHistory: updatedHistory });
     await sendWhatsAppMessage(from, finalReply || "Done.");
   } catch (err) {
     console.error("WhatsApp webhook error:", err);

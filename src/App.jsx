@@ -144,9 +144,13 @@ export default function App() {
 
   const [waPhone, setWaPhone] = useState("");
   const [waCodeInput, setWaCodeInput] = useState("");
-  const [waStep, setWaStep] = useState("idle"); // idle | sent | linked
+  const [waStep, setWaStep] = useState(() => (localStorage.getItem("waLinkedPhone") ? "linked" : "idle")); // idle | sent | linked
   const [waError, setWaError] = useState(null);
   const [waLoading, setWaLoading] = useState(false);
+  // Which phone number is linked for WhatsApp messaging — separate from
+  // `account`, since linking WhatsApp no longer signs you in on its own; it
+  // just attaches to whichever account (Google, normally) is already signed in.
+  const [waLinkedPhone, setWaLinkedPhone] = useState(() => localStorage.getItem("waLinkedPhone"));
   const [googleError, setGoogleError] = useState(null);
   const googleButtonRef = useRef(null);
 
@@ -300,10 +304,12 @@ export default function App() {
     localStorage.removeItem("sessionAccount");
     localStorage.removeItem("waSessionToken");
     localStorage.removeItem("waPhone");
+    localStorage.removeItem("waLinkedPhone");
     setSessionToken(null);
     setAccount(null);
     setWaStep("idle");
     setWaPhone("");
+    setWaLinkedPhone(null);
   }
 
   async function sendWaCode() {
@@ -337,9 +343,12 @@ export default function App() {
     }
     setWaLoading(true);
     try {
+      const headers = { "Content-Type": "application/json" };
+      if (sessionToken) headers["X-Session-Token"] = sessionToken;
+
       const res = await fetch("/api/whatsapp/verify-otp", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify({ phone: waPhone.trim(), code: waCodeInput.trim() }),
       });
       const data = await res.json();
@@ -347,12 +356,19 @@ export default function App() {
 
       applyServerState(data.state);
 
-      const nextAccount = { type: "whatsapp", phone: data.phone };
-      localStorage.setItem("sessionToken", data.token);
-      localStorage.setItem("sessionAccount", JSON.stringify(nextAccount));
-      hydrated.current = true;
-      setSessionToken(data.token);
-      setAccount(nextAccount);
+      if (data.linked) {
+        // Attached to the already-signed-in account — no new session needed.
+        localStorage.setItem("waLinkedPhone", data.phone);
+        setWaLinkedPhone(data.phone);
+      } else {
+        // No one was signed in yet — fall back to a standalone phone account.
+        const nextAccount = { type: "whatsapp", phone: data.phone };
+        localStorage.setItem("sessionToken", data.token);
+        localStorage.setItem("sessionAccount", JSON.stringify(nextAccount));
+        hydrated.current = true;
+        setSessionToken(data.token);
+        setAccount(nextAccount);
+      }
       setWaStep("linked");
       setWaCodeInput("");
     } catch (err) {
@@ -961,6 +977,7 @@ export default function App() {
             waStep={waStep}
             waError={waError}
             waLoading={waLoading}
+            waLinkedPhone={waLinkedPhone}
             onSendWaCode={sendWaCode}
             onVerifyWaCode={verifyWaCode}
           />
@@ -1110,6 +1127,10 @@ function NagToast({ habit, onComplete, onDismiss }) {
   );
 }
 
+// Google is the only way to sign up or log in. WhatsApp linking is a
+// secondary, optional step that only makes sense once an account already
+// exists — it attaches a phone number to that account so messages sent to
+// Marvin on WhatsApp land in the same goals/tasks/habits/chat record.
 function AccountSyncCard({
   compact,
   account,
@@ -1124,17 +1145,42 @@ function AccountSyncCard({
   waStep,
   waError,
   waLoading,
+  waLinkedPhone,
   onSendWaCode,
   onVerifyWaCode,
 }) {
-  if (account) {
-    const label =
-      account.type === "google" ? `Signed in as ${account.email}` : `Synced with WhatsApp (${account.phone})`;
+  if (!account) {
     return (
-      <div
-        className="flex items-center gap-2"
-        style={{ fontSize: compact ? "12.5px" : "13.5px", color: "var(--ink-soft)" }}
-      >
+      <div className={compact ? "" : "pga-card px-4 py-4"}>
+        {!compact && (
+          <p className="mb-3" style={{ fontSize: "13px", color: "var(--ink-soft)" }}>
+            Sign in with Google to keep your goals, tasks, and chats saved to your account — pick up right where
+            you left off on any device.
+          </p>
+        )}
+        {showGoogleButton ? (
+          <>
+            <div ref={googleButtonRef} />
+            {googleError && (
+              <p className="mt-2" style={{ fontSize: "12.5px", color: "var(--danger)" }}>
+                {googleError}
+              </p>
+            )}
+          </>
+        ) : (
+          <p style={{ fontSize: "12.5px", color: "var(--ink-soft)" }}>
+            Google sign-in isn't set up yet. Your data still saves on this device.
+          </p>
+        )}
+      </div>
+    );
+  }
+
+  const label = account.type === "google" ? `Signed in as ${account.email}` : `Synced with WhatsApp (${account.phone})`;
+
+  return (
+    <div className={compact ? "" : "pga-card px-4 py-4"}>
+      <div className="flex items-center gap-2" style={{ fontSize: compact ? "12.5px" : "13.5px", color: "var(--ink-soft)" }}>
         <CheckCircle2 size={14} color="var(--success)" />
         <span style={{ flex: 1 }}>{label}</span>
         {!compact && (
@@ -1143,71 +1189,57 @@ function AccountSyncCard({
           </button>
         )}
       </div>
-    );
-  }
 
-  return (
-    <div className={compact ? "" : "pga-card px-4 py-4"}>
-      {!compact && (
-        <p className="mb-3" style={{ fontSize: "13px", color: "var(--ink-soft)" }}>
-          Sign in to keep your goals, tasks, and chats saved to your account — pick up right where you left off on
-          any device.
-        </p>
-      )}
-
-      {showGoogleButton && (
-        <div className="mb-3">
-          <div ref={googleButtonRef} />
-          {googleError && (
-            <p className="mt-2" style={{ fontSize: "12.5px", color: "var(--danger)" }}>
-              {googleError}
-            </p>
+      {account.type === "google" && !compact && (
+        <div className="mt-3 pt-3" style={{ borderTop: "1px solid var(--border)" }}>
+          {waLinkedPhone ? (
+            <div className="flex items-center gap-2" style={{ fontSize: "12.5px", color: "var(--ink-soft)" }}>
+              <CheckCircle2 size={13} color="var(--success)" />
+              <span>Also linked to WhatsApp ({waLinkedPhone})</span>
+            </div>
+          ) : (
+            <>
+              <p className="mb-2" style={{ fontSize: "12.5px", color: "var(--ink-soft)" }}>
+                Also chat with Marvin on WhatsApp:
+              </p>
+              {waStep === "idle" && (
+                <div className="flex gap-2">
+                  <input
+                    className="pga-input"
+                    placeholder="+1 555 123 4567"
+                    value={waPhone}
+                    onChange={(e) => setWaPhone(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && onSendWaCode()}
+                    disabled={waLoading}
+                  />
+                  <button className="pga-btn-primary" onClick={onSendWaCode} disabled={waLoading} style={{ whiteSpace: "nowrap" }}>
+                    Send code
+                  </button>
+                </div>
+              )}
+              {waStep === "sent" && (
+                <div className="flex gap-2">
+                  <input
+                    className="pga-input"
+                    placeholder="6-digit code"
+                    value={waCodeInput}
+                    onChange={(e) => setWaCodeInput(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && onVerifyWaCode()}
+                    disabled={waLoading}
+                  />
+                  <button className="pga-btn-primary" onClick={onVerifyWaCode} disabled={waLoading} style={{ whiteSpace: "nowrap" }}>
+                    Verify
+                  </button>
+                </div>
+              )}
+              {waError && (
+                <p className="mt-2" style={{ fontSize: "12.5px", color: "var(--danger)" }}>
+                  {waError}
+                </p>
+              )}
+            </>
           )}
         </div>
-      )}
-
-      {showGoogleButton && (
-        <div className="flex items-center gap-2 mb-3" style={{ fontSize: "12px", color: "var(--ink-soft)" }}>
-          <div style={{ flex: 1, height: "1px", background: "var(--border)" }} />
-          or link WhatsApp instead
-          <div style={{ flex: 1, height: "1px", background: "var(--border)" }} />
-        </div>
-      )}
-
-      {waStep === "idle" && (
-        <div className="flex gap-2">
-          <input
-            className="pga-input"
-            placeholder="+1 555 123 4567"
-            value={waPhone}
-            onChange={(e) => setWaPhone(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && onSendWaCode()}
-            disabled={waLoading}
-          />
-          <button className="pga-btn-primary" onClick={onSendWaCode} disabled={waLoading} style={{ whiteSpace: "nowrap" }}>
-            Send code
-          </button>
-        </div>
-      )}
-      {waStep === "sent" && (
-        <div className="flex gap-2">
-          <input
-            className="pga-input"
-            placeholder="6-digit code"
-            value={waCodeInput}
-            onChange={(e) => setWaCodeInput(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && onVerifyWaCode()}
-            disabled={waLoading}
-          />
-          <button className="pga-btn-primary" onClick={onVerifyWaCode} disabled={waLoading} style={{ whiteSpace: "nowrap" }}>
-            Verify
-          </button>
-        </div>
-      )}
-      {waError && (
-        <p className="mt-2" style={{ fontSize: "12.5px", color: "var(--danger)" }}>
-          {waError}
-        </p>
       )}
     </div>
   );
@@ -1242,6 +1274,7 @@ function TodayView({
   waStep,
   waError,
   waLoading,
+  waLinkedPhone,
   onSendWaCode,
   onVerifyWaCode,
 }) {
@@ -1372,7 +1405,7 @@ function TodayView({
 
       <div className="mt-8 pt-6" style={{ borderTop: "1px solid var(--border)" }}>
         <AccountSyncCard
-          compact={!!account && !isFreshStart}
+          compact={!!account && !isFreshStart && (account.type !== "google" || !!waLinkedPhone)}
           account={account}
           onUnlink={onUnlinkAccount}
           googleButtonRef={googleButtonRef}
@@ -1385,6 +1418,7 @@ function TodayView({
           waStep={waStep}
           waError={waError}
           waLoading={waLoading}
+          waLinkedPhone={waLinkedPhone}
           onSendWaCode={onSendWaCode}
           onVerifyWaCode={onVerifyWaCode}
         />

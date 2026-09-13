@@ -51,6 +51,25 @@ export async function accountForSession(token) {
   return (await kv.get(`session:${token}`)) || null;
 }
 
+// Lets a phone number that's already signed in via another method (Google)
+// share that same account record, instead of the WhatsApp number always
+// getting its own separate one. Keyed on digits only (no leading "+") since
+// the number a user types on the web ("+1 555...") and the number Meta's
+// webhook reports for the same conversation ("1555...") don't otherwise
+// agree on formatting.
+function aliasKeyFor(phone) {
+  return String(phone || "").replace(/[^\d]/g, "");
+}
+
+export async function linkPhoneToAccount(phone, accountKey) {
+  await kv.set(`phone-alias:${aliasKeyFor(phone)}`, accountKey);
+}
+
+export async function resolveAccountKey(phone) {
+  const alias = await kv.get(`phone-alias:${aliasKeyFor(phone)}`);
+  return alias || normalizePhone(phone);
+}
+
 export async function getUserRecord(accountKey) {
   const record = await kv.get(`user:${accountKey}`);
   return record || { goals: [], tasks: [], habits: [], reflections: [], chatHistory: [] };
