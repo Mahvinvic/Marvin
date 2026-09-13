@@ -15,11 +15,32 @@ import {
 } from "lucide-react";
 
 const NAG_INTERVAL_MS = 30 * 60 * 1000;
+const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
 
 const initialGoals = [];
 const initialHabits = [];
 const initialTasks = [];
 const initialReflections = [];
+
+// Everything the user builds up (goals, tasks, habits, chat history) is kept
+// in localStorage so it survives closing the app or the tab, even before —
+// or without ever — signing in to sync it to an account.
+function loadLocal(key, fallback) {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function saveLocal(key, value) {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch (err) {
+    console.warn(`Couldn't save "${key}" locally`, err);
+  }
+}
 
 const trendWeeks = [
   { week: "Wk 1", g1: 1, g2: 1, g3: 2 },
@@ -80,9 +101,9 @@ function AssistantAvatar({ size = 40 }) {
 
 export default function App() {
   const [view, setView] = useState("today");
-  const [goals, setGoals] = useState(initialGoals);
-  const [tasks, setTasks] = useState(initialTasks);
-  const [reflections, setReflections] = useState(initialReflections);
+  const [goals, setGoals] = useState(() => loadLocal("marvin.goals", initialGoals));
+  const [tasks, setTasks] = useState(() => loadLocal("marvin.tasks", initialTasks));
+  const [reflections, setReflections] = useState(() => loadLocal("marvin.reflections", initialReflections));
 
   const [showAddTask, setShowAddTask] = useState(false);
   const [newTaskText, setNewTaskText] = useState("");
@@ -93,7 +114,7 @@ export default function App() {
 
   const [reflectDraft, setReflectDraft] = useState({ win: "", friction: "", energy: "Steady" });
 
-  const [habits, setHabits] = useState(initialHabits);
+  const [habits, setHabits] = useState(() => loadLocal("marvin.habits", initialHabits));
   const [showAddHabit, setShowAddHabit] = useState(false);
   const [newHabitText, setNewHabitText] = useState("");
   const [notifPermission, setNotifPermission] = useState(
@@ -101,7 +122,7 @@ export default function App() {
   );
   const [nagHabit, setNagHabit] = useState(null);
 
-  const [chatMessages, setChatMessages] = useState([]);
+  const [chatMessages, setChatMessages] = useState(() => loadLocal("marvin.chatMessages", []));
   const [chatInput, setChatInput] = useState("");
   const [chatLoading, setChatLoading] = useState(false);
   const [chatError, setChatError] = useState(null);
@@ -110,6 +131,236 @@ export default function App() {
   useEffect(() => {
     habitsRef.current = habits;
   }, [habits]);
+
+  // Always-on local persistence — goals, tasks, habits, reflections, and chat
+  // all survive closing the app/tab even before (or without) signing in.
+  useEffect(() => saveLocal("marvin.goals", goals), [goals]);
+  useEffect(() => saveLocal("marvin.tasks", tasks), [tasks]);
+  useEffect(() => saveLocal("marvin.habits", habits), [habits]);
+  useEffect(() => saveLocal("marvin.reflections", reflections), [reflections]);
+  useEffect(() => {
+    saveLocal("marvin.chatMessages", chatMessages.filter((m) => !m.streaming));
+  }, [chatMessages]);
+
+  const [waPhone, setWaPhone] = useState("");
+  const [waCodeInput, setWaCodeInput] = useState("");
+  const [waStep, setWaStep] = useState("idle"); // idle | sent | linked
+  const [waError, setWaError] = useState(null);
+  const [waLoading, setWaLoading] = useState(false);
+  const [googleError, setGoogleError] = useState(null);
+  const googleButtonRef = useRef(null);
+
+  // A signed-in account (WhatsApp or Google) syncs goals/tasks/habits/chat to
+  // the server under one session token, so the same data follows the user
+  // across devices and reinstalls, not just across app restarts.
+  const [sessionToken, setSessionToken] = useState(null);
+  const [account, setAccount] = useState(null); // { type: "whatsapp", phone } | { type: "google", email, name, picture }
+  const hydrated = useRef(false);
+  const syncTimer = useRef(null);
+
+  // If the server has nothing yet but this browser already has local data,
+  // keep the local data rather than overwriting it with an empty record —
+  // the debounced sync effect below will push it up shortly after.
+  function applyServerState(data) {
+    const serverEmpty =
+      (data.goals?.length || 0) === 0 &&
+      (data.tasks?.length || 0) === 0 &&
+      (data.habits?.length || 0) === 0 &&
+      (data.chatHistory?.length || 0) === 0;
+    const localHasData = goals.length > 0 || tasks.length > 0 || habits.length > 0 || chatMessages.length > 0;
+    if (serverEmpty && localHasData) return;
+    setGoals(data.goals || []);
+    setTasks(data.tasks || []);
+    setHabits(data.habits || []);
+    setReflections(data.reflections || []);
+    setChatMessages(data.chatHistory || []);
+  }
+
+  // Restore a signed-in session (migrating the older WhatsApp-only keys if
+  // that's all that's there) and hydrate this browser from the server record.
+  useEffect(() => {
+    let token = localStorage.getItem("sessionToken");
+    let storedAccount = loadLocal("sessionAccount", null);
+
+    if (!token) {
+      const legacyToken = localStorage.getItem("waSessionToken");
+      const legacyPhone = localStorage.getItem("waPhone");
+      if (legacyToken && legacyPhone) {
+        token = legacyToken;
+        storedAccount = { type: "whatsapp", phone: legacyPhone };
+        localStorage.setItem("sessionToken", token);
+        localStorage.setItem("sessionAccount", JSON.stringify(storedAccount));
+        localStorage.removeItem("waSessionToken");
+        localStorage.removeItem("waPhone");
+      }
+    }
+
+    if (!token || !storedAccount) {
+      hydrated.current = true;
+      return;
+    }
+
+    (async () => {
+      try {
+        const res = await fetch("/api/state", { headers: { "X-Session-Token": token } });
+        if (!res.ok) {
+          localStorage.removeItem("sessionToken");
+          localStorage.removeItem("sessionAccount");
+          return;
+        }
+        const data = await res.json();
+        applyServerState(data);
+        setSessionToken(token);
+        setAccount(storedAccount);
+        if (storedAccount.type === "whatsapp") setWaStep("linked");
+      } catch {
+        // Offline or the API is unreachable — fall back to local-only mode.
+      } finally {
+        hydrated.current = true;
+      }
+    })();
+  }, []);
+
+  // Debounced sync to the server once signed in, so every device sees the same data.
+  useEffect(() => {
+    if (!sessionToken || !hydrated.current) return;
+    clearTimeout(syncTimer.current);
+    syncTimer.current = setTimeout(() => {
+      fetch("/api/state", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json", "X-Session-Token": sessionToken },
+        body: JSON.stringify({ goals, tasks, habits, reflections, chatHistory: chatMessages.filter((m) => !m.streaming) }),
+      }).catch(() => {});
+    }, 800);
+    return () => clearTimeout(syncTimer.current);
+  }, [goals, tasks, habits, reflections, chatMessages, sessionToken]);
+
+  async function handleGoogleCredential(response) {
+    setGoogleError(null);
+    const credential = response?.credential;
+    if (!credential) return;
+    try {
+      const res = await fetch("/api/auth/google", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ credential }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Couldn't sign in with Google.");
+
+      applyServerState(data.state);
+
+      const nextAccount = { type: "google", ...data.account };
+      localStorage.setItem("sessionToken", data.token);
+      localStorage.setItem("sessionAccount", JSON.stringify(nextAccount));
+      hydrated.current = true;
+      setSessionToken(data.token);
+      setAccount(nextAccount);
+    } catch (err) {
+      setGoogleError(err.message);
+    }
+  }
+
+  // Loads Google Identity Services and renders its button once, then hands
+  // sign-ins to handleGoogleCredential above.
+  useEffect(() => {
+    if (!GOOGLE_CLIENT_ID || account) return;
+
+    function renderButton() {
+      if (!window.google?.accounts?.id || !googleButtonRef.current) return;
+      window.google.accounts.id.initialize({
+        client_id: GOOGLE_CLIENT_ID,
+        callback: handleGoogleCredential,
+      });
+      window.google.accounts.id.renderButton(googleButtonRef.current, {
+        theme: "outline",
+        size: "large",
+        shape: "pill",
+        text: "continue_with",
+        width: 280,
+      });
+    }
+
+    const scriptId = "google-identity-services";
+    if (document.getElementById(scriptId)) {
+      renderButton();
+      return;
+    }
+    const script = document.createElement("script");
+    script.id = scriptId;
+    script.src = "https://accounts.google.com/gsi/client";
+    script.async = true;
+    script.defer = true;
+    script.onload = renderButton;
+    document.head.appendChild(script);
+  }, [account]);
+
+  function unlinkAccount() {
+    localStorage.removeItem("sessionToken");
+    localStorage.removeItem("sessionAccount");
+    localStorage.removeItem("waSessionToken");
+    localStorage.removeItem("waPhone");
+    setSessionToken(null);
+    setAccount(null);
+    setWaStep("idle");
+    setWaPhone("");
+  }
+
+  async function sendWaCode() {
+    setWaError(null);
+    if (!waPhone.trim()) {
+      setWaError("Enter a phone number first.");
+      return;
+    }
+    setWaLoading(true);
+    try {
+      const res = await fetch("/api/whatsapp/send-otp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone: waPhone.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Couldn't send the code.");
+      setWaStep("sent");
+    } catch (err) {
+      setWaError(err.message);
+    } finally {
+      setWaLoading(false);
+    }
+  }
+
+  async function verifyWaCode() {
+    setWaError(null);
+    if (!waCodeInput.trim()) {
+      setWaError("Enter the code you received.");
+      return;
+    }
+    setWaLoading(true);
+    try {
+      const res = await fetch("/api/whatsapp/verify-otp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone: waPhone.trim(), code: waCodeInput.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Couldn't verify that code.");
+
+      applyServerState(data.state);
+
+      const nextAccount = { type: "whatsapp", phone: data.phone };
+      localStorage.setItem("sessionToken", data.token);
+      localStorage.setItem("sessionAccount", JSON.stringify(nextAccount));
+      hydrated.current = true;
+      setSessionToken(data.token);
+      setAccount(nextAccount);
+      setWaStep("linked");
+      setWaCodeInput("");
+    } catch (err) {
+      setWaError(err.message);
+    } finally {
+      setWaLoading(false);
+    }
+  }
 
   useEffect(() => {
     const id = setInterval(() => {
@@ -331,6 +582,74 @@ export default function App() {
     }));
   }
 
+  // Streams one round of /api/chat, updating a live "streaming" placeholder
+  // message as text arrives so the reply appears as it's generated instead
+  // of all at once at the end. Returns the round's final { reply, toolCalls }.
+  async function streamChatRound(wireMessages, context, toolChoice) {
+    const res = await fetch("/api/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ messages: wireMessages, context, toolChoice }),
+    });
+    if (!res.ok || !res.body) {
+      let message = "Something went wrong.";
+      try {
+        const data = await res.json();
+        message = data.error || message;
+      } catch {
+        // Non-JSON error body — fall back to the generic message.
+      }
+      throw new Error(message);
+    }
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+    let content = "";
+    let toolCalls = null;
+    let streamingAdded = false;
+
+    try {
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop();
+
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          const event = JSON.parse(line);
+          if (event.type === "delta") {
+            content += event.text;
+            if (!streamingAdded) {
+              streamingAdded = true;
+              setChatMessages((prev) => [...prev, { role: "assistant", content, streaming: true }]);
+            } else {
+              setChatMessages((prev) => {
+                const next = [...prev];
+                const last = next[next.length - 1];
+                if (last?.streaming) next[next.length - 1] = { ...last, content };
+                return next;
+              });
+            }
+          } else if (event.type === "tool_calls") {
+            toolCalls = event.toolCalls;
+            content = event.reply ?? content;
+          } else if (event.type === "done") {
+            content = event.reply ?? content;
+          } else if (event.type === "error") {
+            throw new Error(event.error);
+          }
+        }
+      }
+    } finally {
+      if (streamingAdded) setChatMessages((prev) => prev.filter((m) => !m.streaming));
+    }
+
+    return { reply: content, toolCalls };
+  }
+
   async function sendChatMessage() {
     const text = chatInput.trim();
     if (!text || chatLoading) return;
@@ -351,41 +670,31 @@ export default function App() {
 
       for (let round = 0; round < MAX_ROUNDS; round++) {
         const isLastRound = round === MAX_ROUNDS - 1;
-        const res = await fetch("/api/chat", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ messages: wireMessages, context, toolChoice: isLastRound ? "none" : "auto" }),
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || "Something went wrong.");
+        const result = await streamChatRound(wireMessages, context, isLastRound ? "none" : "auto");
 
-        if (data.toolCalls?.length && !isLastRound) {
-          const toolResults = executeToolCalls(data.toolCalls, titleToNewGoalId);
+        if (result.toolCalls?.length && !isLastRound) {
+          const toolResults = executeToolCalls(result.toolCalls, titleToNewGoalId);
           wireMessages = [
             ...wireMessages,
-            { role: "assistant", content: data.reply ?? null, tool_calls: data.toolCalls },
+            { role: "assistant", content: result.reply ?? null, tool_calls: result.toolCalls },
             ...toolResults,
           ];
           continue;
         }
 
-        finalReply = data.reply || "";
+        finalReply = result.reply || "";
         break;
       }
 
       if (!finalReply) {
         wireMessages = [...wireMessages, { role: "user", content: "Summarize what you just set up for me, in 2-3 sentences." }];
-        const res = await fetch("/api/chat", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ messages: wireMessages, context, toolChoice: "none" }),
-        });
-        const data = await res.json();
-        if (res.ok) finalReply = data.reply || "";
+        const result = await streamChatRound(wireMessages, context, "none");
+        finalReply = result.reply || "";
       }
 
-      setChatMessages((prev) => [...prev, { role: "assistant", content: finalReply || "Done." }]);
+      setChatMessages((prev) => [...prev.filter((m) => !m.streaming), { role: "assistant", content: finalReply || "Done." }]);
     } catch (err) {
+      setChatMessages((prev) => prev.filter((m) => !m.streaming));
       setChatError(err.message || "Couldn't reach Marvin. Is the chat server running?");
     } finally {
       setChatLoading(false);
@@ -640,6 +949,20 @@ export default function App() {
             isFreshStart={isFreshStart}
             onStartOnboardingManual={startOnboardingManual}
             onStartOnboardingWithAI={startOnboardingWithAI}
+            account={account}
+            onUnlinkAccount={unlinkAccount}
+            googleButtonRef={googleButtonRef}
+            showGoogleButton={!!GOOGLE_CLIENT_ID}
+            googleError={googleError}
+            waPhone={waPhone}
+            setWaPhone={setWaPhone}
+            waCodeInput={waCodeInput}
+            setWaCodeInput={setWaCodeInput}
+            waStep={waStep}
+            waError={waError}
+            waLoading={waLoading}
+            onSendWaCode={sendWaCode}
+            onVerifyWaCode={verifyWaCode}
           />
         )}
 
@@ -787,6 +1110,109 @@ function NagToast({ habit, onComplete, onDismiss }) {
   );
 }
 
+function AccountSyncCard({
+  compact,
+  account,
+  onUnlink,
+  googleButtonRef,
+  showGoogleButton,
+  googleError,
+  waPhone,
+  setWaPhone,
+  waCodeInput,
+  setWaCodeInput,
+  waStep,
+  waError,
+  waLoading,
+  onSendWaCode,
+  onVerifyWaCode,
+}) {
+  if (account) {
+    const label =
+      account.type === "google" ? `Signed in as ${account.email}` : `Synced with WhatsApp (${account.phone})`;
+    return (
+      <div
+        className="flex items-center gap-2"
+        style={{ fontSize: compact ? "12.5px" : "13.5px", color: "var(--ink-soft)" }}
+      >
+        <CheckCircle2 size={14} color="var(--success)" />
+        <span style={{ flex: 1 }}>{label}</span>
+        {!compact && (
+          <button onClick={onUnlink} style={{ color: "var(--accent)", fontWeight: 600 }}>
+            Sign out
+          </button>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div className={compact ? "" : "pga-card px-4 py-4"}>
+      {!compact && (
+        <p className="mb-3" style={{ fontSize: "13px", color: "var(--ink-soft)" }}>
+          Sign in to keep your goals, tasks, and chats saved to your account — pick up right where you left off on
+          any device.
+        </p>
+      )}
+
+      {showGoogleButton && (
+        <div className="mb-3">
+          <div ref={googleButtonRef} />
+          {googleError && (
+            <p className="mt-2" style={{ fontSize: "12.5px", color: "var(--danger)" }}>
+              {googleError}
+            </p>
+          )}
+        </div>
+      )}
+
+      {showGoogleButton && (
+        <div className="flex items-center gap-2 mb-3" style={{ fontSize: "12px", color: "var(--ink-soft)" }}>
+          <div style={{ flex: 1, height: "1px", background: "var(--border)" }} />
+          or link WhatsApp instead
+          <div style={{ flex: 1, height: "1px", background: "var(--border)" }} />
+        </div>
+      )}
+
+      {waStep === "idle" && (
+        <div className="flex gap-2">
+          <input
+            className="pga-input"
+            placeholder="+1 555 123 4567"
+            value={waPhone}
+            onChange={(e) => setWaPhone(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && onSendWaCode()}
+            disabled={waLoading}
+          />
+          <button className="pga-btn-primary" onClick={onSendWaCode} disabled={waLoading} style={{ whiteSpace: "nowrap" }}>
+            Send code
+          </button>
+        </div>
+      )}
+      {waStep === "sent" && (
+        <div className="flex gap-2">
+          <input
+            className="pga-input"
+            placeholder="6-digit code"
+            value={waCodeInput}
+            onChange={(e) => setWaCodeInput(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && onVerifyWaCode()}
+            disabled={waLoading}
+          />
+          <button className="pga-btn-primary" onClick={onVerifyWaCode} disabled={waLoading} style={{ whiteSpace: "nowrap" }}>
+            Verify
+          </button>
+        </div>
+      )}
+      {waError && (
+        <p className="mt-2" style={{ fontSize: "12.5px", color: "var(--danger)" }}>
+          {waError}
+        </p>
+      )}
+    </div>
+  );
+}
+
 function TodayView({
   tasks,
   goals,
@@ -804,6 +1230,20 @@ function TodayView({
   isFreshStart,
   onStartOnboardingManual,
   onStartOnboardingWithAI,
+  account,
+  onUnlinkAccount,
+  googleButtonRef,
+  showGoogleButton,
+  googleError,
+  waPhone,
+  setWaPhone,
+  waCodeInput,
+  setWaCodeInput,
+  waStep,
+  waError,
+  waLoading,
+  onSendWaCode,
+  onVerifyWaCode,
 }) {
   const today = new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
 
@@ -929,12 +1369,33 @@ function TodayView({
           )}
         </>
       )}
+
+      <div className="mt-8 pt-6" style={{ borderTop: "1px solid var(--border)" }}>
+        <AccountSyncCard
+          compact={!!account && !isFreshStart}
+          account={account}
+          onUnlink={onUnlinkAccount}
+          googleButtonRef={googleButtonRef}
+          showGoogleButton={showGoogleButton}
+          googleError={googleError}
+          waPhone={waPhone}
+          setWaPhone={setWaPhone}
+          waCodeInput={waCodeInput}
+          setWaCodeInput={setWaCodeInput}
+          waStep={waStep}
+          waError={waError}
+          waLoading={waLoading}
+          onSendWaCode={onSendWaCode}
+          onVerifyWaCode={onVerifyWaCode}
+        />
+      </div>
     </div>
   );
 }
 
 function ChatView({ messages, input, setInput, loading, error, onSend }) {
   const bottomRef = useRef(null);
+  const isStreaming = messages.some((m) => m.streaming);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
@@ -975,7 +1436,7 @@ function ChatView({ messages, input, setInput, loading, error, onSend }) {
             </div>
           </div>
         ))}
-        {loading && (
+        {loading && !isStreaming && (
           <div style={{ display: "flex", justifyContent: "flex-start" }}>
             <div
               style={{
