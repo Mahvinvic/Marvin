@@ -739,19 +739,21 @@ function AppInner({ clerk }) {
         }
 
         .pga-task-row {
-          display: flex; align-items: flex-start; gap: 12px;
+          display: flex; align-items: center; gap: 12px;
           padding: 12px 16px;
           border-bottom: 1px solid var(--border);
           transition: background 0.12s ease;
         }
-        .pga-task-row > button:first-child {
-          margin-top: 1px;
-        }
         .pga-task-text {
-          display: -webkit-box;
-          -webkit-line-clamp: 3;
-          -webkit-box-orient: vertical;
+          white-space: nowrap;
           overflow: hidden;
+          text-overflow: ellipsis;
+        }
+        .pga-task-row-main {
+          display: flex; align-items: center; gap: 12px;
+        }
+        .pga-task-goal-row {
+          display: flex; justify-content: flex-end;
         }
         .pga-task-row:last-child { border-bottom: none; }
         .pga-task-row:hover { background: rgba(120, 120, 128, 0.06); }
@@ -760,6 +762,8 @@ function AppInner({ clerk }) {
           font-size: 12px; font-weight: 600; padding: 3px 10px; border-radius: 999px;
           display: inline-flex; align-items: center; gap: 5px;
           white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
         }
 
         .pga-input {
@@ -1346,40 +1350,48 @@ function TodayView({
             {tasks.map((t) => {
               const goal = goalById(t.goalId);
               return (
-                <div className="pga-task-row" key={t.id}>
-                  <button onClick={() => toggleTask(t.id)} className="shrink-0" aria-label="Toggle task">
-                    {t.done ? (
-                      <CheckCircle2 size={19} color="var(--success)" strokeWidth={1.75} />
-                    ) : (
-                      <Circle size={19} color="var(--ink-soft)" strokeWidth={1.75} />
-                    )}
-                  </button>
-                  <span
-                    className="pga-task-text"
-                    title={t.text}
-                    style={{
-                      fontSize: "14.5px",
-                      color: t.done ? "var(--ink-soft)" : "var(--ink)",
-                      textDecoration: t.done ? "line-through" : "none",
-                      flex: 1,
-                      minWidth: 0,
-                    }}
-                  >
-                    {t.text}
-                  </span>
+                <div className="pga-task-row" key={t.id} style={{ flexDirection: "column", alignItems: "stretch" }}>
                   {goal && (
-                    <span className="pga-chip" style={{ background: goal.color + "22", color: goal.color }}>
-                      {goal.title.length > 22 ? goal.title.slice(0, 22) + "…" : goal.title}
-                    </span>
+                    <div className="pga-task-goal-row">
+                      <span
+                        className="pga-chip"
+                        title={goal.title}
+                        style={{ background: goal.color + "22", color: goal.color, maxWidth: "60%" }}
+                      >
+                        {goal.title}
+                      </span>
+                    </div>
                   )}
-                  <button
-                    onClick={() => removeTask(t.id)}
-                    className="shrink-0"
-                    aria-label="Remove task"
-                    style={{ color: "var(--ink-soft)" }}
-                  >
-                    <X size={16} strokeWidth={1.75} />
-                  </button>
+                  <div className="pga-task-row-main">
+                    <button onClick={() => toggleTask(t.id)} className="shrink-0" aria-label="Toggle task">
+                      {t.done ? (
+                        <CheckCircle2 size={19} color="var(--success)" strokeWidth={1.75} />
+                      ) : (
+                        <Circle size={19} color="var(--ink-soft)" strokeWidth={1.75} />
+                      )}
+                    </button>
+                    <span
+                      className="pga-task-text"
+                      title={t.text}
+                      style={{
+                        fontSize: "14.5px",
+                        color: t.done ? "var(--ink-soft)" : "var(--ink)",
+                        textDecoration: t.done ? "line-through" : "none",
+                        flex: 1,
+                        minWidth: 0,
+                      }}
+                    >
+                      {t.text}
+                    </span>
+                    <button
+                      onClick={() => removeTask(t.id)}
+                      className="shrink-0"
+                      aria-label="Remove task"
+                      style={{ color: "var(--ink-soft)" }}
+                    >
+                      <X size={16} strokeWidth={1.75} />
+                    </button>
+                  </div>
                 </div>
               );
             })}
