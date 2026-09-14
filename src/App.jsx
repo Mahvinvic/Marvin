@@ -826,6 +826,18 @@ function AppInner({ clerk }) {
           .pga-main { padding-bottom: 2.5rem; }
         }
 
+        /* While the chat input is focused (keyboard almost certainly open on
+           phones/tablets), free up the space the fixed bottom nav normally
+           reserves so the input isn't left cramped above the keyboard. */
+        @media (max-width: 639px) {
+          body:has(.pga-chat-input:focus) .pga-mobile-nav {
+            display: none;
+          }
+          body:has(.pga-chat-input:focus) .pga-main {
+            padding-bottom: env(safe-area-inset-bottom, 0px);
+          }
+        }
+
         .pga-app,
         .pga-app * {
           -webkit-tap-highlight-color: transparent;
@@ -968,7 +980,7 @@ function AppInner({ clerk }) {
 
       {/* Mobile bottom nav */}
       <nav
-        className="sm:hidden fixed bottom-0 left-0 right-0 flex items-stretch"
+        className="pga-mobile-nav sm:hidden fixed bottom-0 left-0 right-0 flex items-stretch"
         style={{
           background: "color-mix(in srgb, var(--surface) 82%, transparent)",
           backdropFilter: "blur(20px) saturate(180%)",
@@ -1431,7 +1443,7 @@ function ChatView({ messages, input, setInput, loading, error, onSend, onClear }
   }, [messages, loading]);
 
   return (
-    <div className="flex flex-col" style={{ height: "calc(100dvh - 140px)", minHeight: "420px" }}>
+    <div className="flex flex-col" style={{ height: "calc(100dvh - 140px)" }}>
       <div className="flex items-center justify-between mb-1">
         <h1 className="pga-heading" style={{ fontSize: "28px", fontWeight: 700 }}>Ask Marvin</h1>
         {messages.length > 0 && (
@@ -1507,7 +1519,7 @@ function ChatView({ messages, input, setInput, loading, error, onSend, onClear }
       <div className="flex gap-2">
         <input
           autoFocus
-          className="pga-input"
+          className="pga-input pga-chat-input"
           placeholder="Message Marvin…"
           value={input}
           onChange={(e) => setInput(e.target.value)}
