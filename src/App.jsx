@@ -739,18 +739,17 @@ function AppInner({ clerk }) {
         }
 
         .pga-task-row {
-          display: flex; align-items: center; gap: 12px;
+          display: flex; align-items: flex-start; gap: 12px;
           padding: 12px 16px;
           border-bottom: 1px solid var(--border);
           transition: background 0.12s ease;
         }
-        .pga-task-text {
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
+        .pga-task-row > button:first-child,
+        .pga-task-row-main > button:first-child {
+          margin-top: 1px;
         }
         .pga-task-row-main {
-          display: flex; align-items: center; gap: 12px;
+          display: flex; align-items: flex-start; gap: 12px;
         }
         .pga-task-goal-row {
           display: flex; justify-content: flex-end;
@@ -1371,8 +1370,6 @@ function TodayView({
                       )}
                     </button>
                     <span
-                      className="pga-task-text"
-                      title={t.text}
                       style={{
                         fontSize: "14.5px",
                         color: t.done ? "var(--ink-soft)" : "var(--ink)",
@@ -1751,8 +1748,6 @@ function HabitsView({
               )}
             </button>
             <span
-              className="pga-task-text"
-              title={h.title}
               style={{
                 fontSize: "14.5px",
                 color: h.done ? "var(--ink-soft)" : "var(--ink)",
