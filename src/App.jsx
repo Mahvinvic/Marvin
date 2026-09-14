@@ -281,7 +281,7 @@ export default function App() {
         size: "large",
         shape: "pill",
         text: "continue_with",
-        width: 280,
+        width: Math.min(280, googleButtonRef.current.clientWidth || 280),
       });
     }
 
@@ -767,6 +767,8 @@ export default function App() {
           color: var(--ink);
           font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
           -webkit-font-smoothing: antialiased;
+          overflow-x: hidden;
+          overflow-wrap: anywhere;
         }
 
         @media (prefers-color-scheme: dark) {
@@ -840,6 +842,7 @@ export default function App() {
           background: var(--accent); color: #fff;
           border-radius: 12px; padding: 10px 18px; font-size: 15px; font-weight: 600;
           border: none; cursor: pointer;
+          white-space: nowrap; flex-shrink: 0;
         }
         .pga-btn-primary:hover { opacity: 0.88; }
         .pga-btn-primary:active { opacity: 0.7; }
@@ -848,6 +851,7 @@ export default function App() {
           background: var(--surface-2); color: var(--accent);
           border: none; border-radius: 12px;
           padding: 10px 16px; font-size: 15px; font-weight: 600; cursor: pointer;
+          white-space: nowrap; flex-shrink: 0;
         }
         .pga-btn-ghost:hover { opacity: 0.85; }
         .pga-btn-ghost:active { opacity: 0.65; }
@@ -892,6 +896,7 @@ export default function App() {
         .pga-banner-in { animation: pgaSlideDown 0.35s cubic-bezier(0.2, 0.9, 0.3, 1) forwards; }
 
         .pga-main {
+          min-width: 0;
           padding-bottom: calc(88px + env(safe-area-inset-bottom, 0px));
         }
         @media (min-width: 640px) {
@@ -1547,9 +1552,9 @@ function GoalsView({
           const pct = Math.min(100, Math.round((done / g.target) * 100));
           return (
             <div className="pga-card px-4 py-4" key={g.id}>
-              <div className="flex items-center justify-between mb-2">
-                <span className="pga-heading" style={{ fontSize: "17px", fontWeight: 600 }}>{g.title}</span>
-                <div className="flex items-center gap-3">
+              <div className="flex items-center justify-between gap-3 mb-2">
+                <span className="pga-heading" style={{ fontSize: "17px", fontWeight: 600, minWidth: 0 }}>{g.title}</span>
+                <div className="flex items-center gap-3" style={{ flexShrink: 0, whiteSpace: "nowrap" }}>
                   <span style={{ fontSize: "13px", color: "var(--ink-soft)" }}>{done} / {g.target} this week</span>
                   <button
                     onClick={() => removeGoal(g.id)}
