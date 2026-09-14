@@ -1,12 +1,13 @@
-import { accountForSession, getUserRecord, saveUserRecord } from "./_store.js";
+import { getUserRecord, saveUserRecord } from "./_store.js";
+import { clerkUserIdFromRequest, accountKeyForClerkUser } from "./_clerk.js";
 
 export default async function handler(req, res) {
-  const token = req.headers["x-session-token"];
-  const accountKey = await accountForSession(token);
-  if (!accountKey) {
-    res.status(401).json({ error: "Not logged in, or the session expired." });
+  const userId = await clerkUserIdFromRequest(req);
+  if (!userId) {
+    res.status(401).json({ error: "Not signed in, or the session expired." });
     return;
   }
+  const accountKey = accountKeyForClerkUser(userId);
 
   if (req.method === "GET") {
     const record = await getUserRecord(accountKey);

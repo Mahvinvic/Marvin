@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef } from "react";
+import { ClerkProvider, AuthenticateWithRedirectCallback, useUser, useAuth, useSignIn } from "@clerk/clerk-react";
 import {
   CheckCircle2,
   Circle,
@@ -15,7 +16,7 @@ import {
 } from "lucide-react";
 
 const NAG_INTERVAL_MS = 30 * 60 * 1000;
-const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+const CLERK_PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
 
 const initialGoals = [];
 const initialHabits = [];
@@ -99,7 +100,10 @@ function AssistantAvatar({ size = 40 }) {
   );
 }
 
-export default function App() {
+// clerk is null when Clerk isn't configured (no publishable key yet), or
+// { isSignedIn, email, name, picture, getToken, signOut, signInWithGoogle }
+// once ClerkBridge below has mounted it under a real ClerkProvider.
+function AppInner({ clerk }) {
   const [view, setView] = useState("today");
   const [goals, setGoals] = useState(() => loadLocal("marvin.goals", initialGoals));
   const [tasks, setTasks] = useState(() => loadLocal("marvin.tasks", initialTasks));
@@ -149,16 +153,12 @@ export default function App() {
   const [waLoading, setWaLoading] = useState(false);
   // Which phone number is linked for WhatsApp messaging — separate from
   // `account`, since linking WhatsApp no longer signs you in on its own; it
-  // just attaches to whichever account (Google, normally) is already signed in.
+  // just attaches to whichever account (Google, via Clerk) is already signed in.
   const [waLinkedPhone, setWaLinkedPhone] = useState(() => localStorage.getItem("waLinkedPhone"));
   const [googleError, setGoogleError] = useState(null);
-  const googleButtonRef = useRef(null);
 
-  // A signed-in account (WhatsApp or Google) syncs goals/tasks/habits/chat to
-  // the server under one session token, so the same data follows the user
-  // across devices and reinstalls, not just across app restarts.
-  const [sessionToken, setSessionToken] = useState(null);
-  const [account, setAccount] = useState(null); // { type: "whatsapp", phone } | { type: "google", email, name, picture }
+  // Clerk owns the actual session; this is just a display-friendly view of it.
+  const account = clerk?.isSignedIn ? { type: "google", email: clerk.email, name: clerk.name, picture: clerk.picture } : null;
   const hydrated = useRef(false);
   const syncTimer = useRef(null);
 
@@ -180,136 +180,63 @@ export default function App() {
     setChatMessages(data.chatHistory || []);
   }
 
-  // Restore a signed-in session (migrating the older WhatsApp-only keys if
-  // that's all that's there) and hydrate this browser from the server record.
+  // Hydrate this browser from the server record once Clerk reports a signed-in user.
   useEffect(() => {
-    let token = localStorage.getItem("sessionToken");
-    let storedAccount = loadLocal("sessionAccount", null);
-
-    if (!token) {
-      const legacyToken = localStorage.getItem("waSessionToken");
-      const legacyPhone = localStorage.getItem("waPhone");
-      if (legacyToken && legacyPhone) {
-        token = legacyToken;
-        storedAccount = { type: "whatsapp", phone: legacyPhone };
-        localStorage.setItem("sessionToken", token);
-        localStorage.setItem("sessionAccount", JSON.stringify(storedAccount));
-        localStorage.removeItem("waSessionToken");
-        localStorage.removeItem("waPhone");
-      }
-    }
-
-    if (!token || !storedAccount) {
-      hydrated.current = true;
-      return;
-    }
-
+    if (!clerk?.isSignedIn) return;
+    let cancelled = false;
     (async () => {
       try {
-        const res = await fetch("/api/state", { headers: { "X-Session-Token": token } });
-        if (!res.ok) {
-          localStorage.removeItem("sessionToken");
-          localStorage.removeItem("sessionAccount");
-          return;
-        }
+        const token = await clerk.getToken();
+        const res = await fetch("/api/state", { headers: { Authorization: `Bearer ${token}` } });
+        if (!res.ok || cancelled) return;
         const data = await res.json();
-        applyServerState(data);
-        setSessionToken(token);
-        setAccount(storedAccount);
-        if (storedAccount.type === "whatsapp") setWaStep("linked");
+        if (!cancelled) applyServerState(data);
       } catch {
         // Offline or the API is unreachable — fall back to local-only mode.
       } finally {
-        hydrated.current = true;
+        if (!cancelled) hydrated.current = true;
       }
     })();
-  }, []);
+    return () => {
+      cancelled = true;
+    };
+  }, [clerk?.isSignedIn]);
 
   // Debounced sync to the server once signed in, so every device sees the same data.
   useEffect(() => {
-    if (!sessionToken || !hydrated.current) return;
+    if (!clerk?.isSignedIn || !hydrated.current) return;
     clearTimeout(syncTimer.current);
-    syncTimer.current = setTimeout(() => {
-      fetch("/api/state", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json", "X-Session-Token": sessionToken },
-        body: JSON.stringify({ goals, tasks, habits, reflections, chatHistory: chatMessages.filter((m) => !m.streaming) }),
-      }).catch(() => {});
+    syncTimer.current = setTimeout(async () => {
+      try {
+        const token = await clerk.getToken();
+        fetch("/api/state", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ goals, tasks, habits, reflections, chatHistory: chatMessages.filter((m) => !m.streaming) }),
+        }).catch(() => {});
+      } catch {
+        // Couldn't get a fresh token — the next change will retry.
+      }
     }, 800);
     return () => clearTimeout(syncTimer.current);
-  }, [goals, tasks, habits, reflections, chatMessages, sessionToken]);
+  }, [goals, tasks, habits, reflections, chatMessages, clerk?.isSignedIn]);
 
-  async function handleGoogleCredential(response) {
+  async function handleSignInWithGoogle() {
     setGoogleError(null);
-    const credential = response?.credential;
-    if (!credential) return;
     try {
-      const res = await fetch("/api/auth/google", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ credential }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Couldn't sign in with Google.");
-
-      applyServerState(data.state);
-
-      const nextAccount = { type: "google", ...data.account };
-      localStorage.setItem("sessionToken", data.token);
-      localStorage.setItem("sessionAccount", JSON.stringify(nextAccount));
-      hydrated.current = true;
-      setSessionToken(data.token);
-      setAccount(nextAccount);
+      await clerk?.signInWithGoogle();
     } catch (err) {
-      setGoogleError(err.message);
+      setGoogleError(err.message || "Couldn't start Google sign-in.");
     }
   }
 
-  // Loads Google Identity Services and renders its button once, then hands
-  // sign-ins to handleGoogleCredential above.
-  useEffect(() => {
-    if (!GOOGLE_CLIENT_ID || account) return;
-
-    function renderButton() {
-      if (!window.google?.accounts?.id || !googleButtonRef.current) return;
-      window.google.accounts.id.initialize({
-        client_id: GOOGLE_CLIENT_ID,
-        callback: handleGoogleCredential,
-      });
-      window.google.accounts.id.renderButton(googleButtonRef.current, {
-        theme: "outline",
-        size: "large",
-        shape: "pill",
-        text: "continue_with",
-        width: Math.min(280, googleButtonRef.current.clientWidth || 280),
-      });
-    }
-
-    const scriptId = "google-identity-services";
-    if (document.getElementById(scriptId)) {
-      renderButton();
-      return;
-    }
-    const script = document.createElement("script");
-    script.id = scriptId;
-    script.src = "https://accounts.google.com/gsi/client";
-    script.async = true;
-    script.defer = true;
-    script.onload = renderButton;
-    document.head.appendChild(script);
-  }, [account]);
-
-  function unlinkAccount() {
-    localStorage.removeItem("sessionToken");
-    localStorage.removeItem("sessionAccount");
-    localStorage.removeItem("waSessionToken");
-    localStorage.removeItem("waPhone");
+  async function handleSignOut() {
     localStorage.removeItem("waLinkedPhone");
-    setSessionToken(null);
-    setAccount(null);
+    setWaLinkedPhone(null);
     setWaStep("idle");
     setWaPhone("");
-    setWaLinkedPhone(null);
+    hydrated.current = false;
+    await clerk?.signOut();
   }
 
   async function sendWaCode() {
@@ -341,34 +268,24 @@ export default function App() {
       setWaError("Enter the code you received.");
       return;
     }
+    if (!clerk?.isSignedIn) {
+      setWaError("Sign in first, then link a WhatsApp number.");
+      return;
+    }
     setWaLoading(true);
     try {
-      const headers = { "Content-Type": "application/json" };
-      if (sessionToken) headers["X-Session-Token"] = sessionToken;
-
+      const token = await clerk.getToken();
       const res = await fetch("/api/whatsapp/verify-otp", {
         method: "POST",
-        headers,
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ phone: waPhone.trim(), code: waCodeInput.trim() }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Couldn't verify that code.");
 
       applyServerState(data.state);
-
-      if (data.linked) {
-        // Attached to the already-signed-in account — no new session needed.
-        localStorage.setItem("waLinkedPhone", data.phone);
-        setWaLinkedPhone(data.phone);
-      } else {
-        // No one was signed in yet — fall back to a standalone phone account.
-        const nextAccount = { type: "whatsapp", phone: data.phone };
-        localStorage.setItem("sessionToken", data.token);
-        localStorage.setItem("sessionAccount", JSON.stringify(nextAccount));
-        hydrated.current = true;
-        setSessionToken(data.token);
-        setAccount(nextAccount);
-      }
+      localStorage.setItem("waLinkedPhone", data.phone);
+      setWaLinkedPhone(data.phone);
       setWaStep("linked");
       setWaCodeInput("");
     } catch (err) {
@@ -971,9 +888,9 @@ export default function App() {
             onStartOnboardingManual={startOnboardingManual}
             onStartOnboardingWithAI={startOnboardingWithAI}
             account={account}
-            onUnlinkAccount={unlinkAccount}
-            googleButtonRef={googleButtonRef}
-            showGoogleButton={!!GOOGLE_CLIENT_ID}
+            onSignOut={handleSignOut}
+            onGoogleSignIn={handleSignInWithGoogle}
+            showGoogleButton={!!CLERK_PUBLISHABLE_KEY}
             googleError={googleError}
             waPhone={waPhone}
             setWaPhone={setWaPhone}
@@ -1082,6 +999,53 @@ export default function App() {
   );
 }
 
+// Bridges Clerk's hooks (which only work inside <ClerkProvider>) into the
+// plain-object shape AppInner expects, so AppInner itself never has to know
+// whether Clerk is configured — it just gets `clerk: null` when it isn't.
+function ClerkBridge() {
+  const { isLoaded, isSignedIn, user } = useUser();
+  const { getToken, signOut } = useAuth();
+  const { signIn } = useSignIn();
+
+  const clerk = useMemo(() => {
+    if (!isLoaded) return null;
+    return {
+      isSignedIn,
+      email: user?.primaryEmailAddress?.emailAddress || null,
+      name: user?.fullName || null,
+      picture: user?.imageUrl || null,
+      getToken,
+      signOut,
+      signInWithGoogle: () =>
+        signIn.authenticateWithRedirect({
+          strategy: "oauth_google",
+          redirectUrl: `${window.location.origin}/sso-callback`,
+          redirectUrlComplete: window.location.origin,
+        }),
+    };
+  }, [isLoaded, isSignedIn, user, getToken, signOut, signIn]);
+
+  return <AppInner clerk={clerk} />;
+}
+
+export default function App() {
+  if (!CLERK_PUBLISHABLE_KEY) return <AppInner clerk={null} />;
+  // Google's OAuth redirect lands back here; Clerk completes the sign-in and
+  // this then sends the user on to the app itself.
+  if (window.location.pathname === "/sso-callback") {
+    return (
+      <ClerkProvider publishableKey={CLERK_PUBLISHABLE_KEY}>
+        <AuthenticateWithRedirectCallback afterSignInUrl="/" afterSignUpUrl="/" />
+      </ClerkProvider>
+    );
+  }
+  return (
+    <ClerkProvider publishableKey={CLERK_PUBLISHABLE_KEY}>
+      <ClerkBridge />
+    </ClerkProvider>
+  );
+}
+
 function NagToast({ habit, onComplete, onDismiss }) {
   if (!habit) return null;
   return (
@@ -1140,7 +1104,7 @@ function AccountSyncCard({
   compact,
   account,
   onUnlink,
-  googleButtonRef,
+  onGoogleSignIn,
   showGoogleButton,
   googleError,
   waPhone,
@@ -1165,7 +1129,26 @@ function AccountSyncCard({
         )}
         {showGoogleButton ? (
           <>
-            <div ref={googleButtonRef} />
+            <button
+              onClick={onGoogleSignIn}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: "10px",
+                width: "100%",
+                padding: "11px 16px",
+                borderRadius: "999px",
+                border: "1px solid var(--border)",
+                background: "var(--surface)",
+                color: "var(--ink)",
+                fontSize: "14.5px",
+                fontWeight: 600,
+                cursor: "pointer",
+              }}
+            >
+              Continue with Google
+            </button>
             {googleError && (
               <p className="mt-2" style={{ fontSize: "12.5px", color: "var(--danger)" }}>
                 {googleError}
@@ -1181,7 +1164,7 @@ function AccountSyncCard({
     );
   }
 
-  const label = account.type === "google" ? `Signed in as ${account.email}` : `Synced with WhatsApp (${account.phone})`;
+  const label = `Signed in as ${account.email}`;
 
   return (
     <div className={compact ? "" : "pga-card px-4 py-4"}>
@@ -1268,8 +1251,8 @@ function TodayView({
   onStartOnboardingManual,
   onStartOnboardingWithAI,
   account,
-  onUnlinkAccount,
-  googleButtonRef,
+  onSignOut,
+  onGoogleSignIn,
   showGoogleButton,
   googleError,
   waPhone,
@@ -1412,8 +1395,8 @@ function TodayView({
         <AccountSyncCard
           compact={!!account && !isFreshStart && (account.type !== "google" || !!waLinkedPhone)}
           account={account}
-          onUnlink={onUnlinkAccount}
-          googleButtonRef={googleButtonRef}
+          onUnlink={onSignOut}
+          onGoogleSignIn={onGoogleSignIn}
           showGoogleButton={showGoogleButton}
           googleError={googleError}
           waPhone={waPhone}
