@@ -51,7 +51,7 @@ const trendWeeks = [
 ];
 
 const NAV = [
-  { id: "today", label: "Today", icon: ListTodo },
+  { id: "today", label: "Todo", icon: ListTodo },
   { id: "chat", label: "Chat", icon: MessageCircle },
   { id: "goals", label: "Goals", icon: Target },
   { id: "habits", label: "Habits", icon: HeartPulse },
