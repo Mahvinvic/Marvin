@@ -13,6 +13,7 @@ import {
   Image as ImageIcon,
   Bell,
   MessageCircle,
+  Trash2,
 } from "lucide-react";
 
 const NAG_INTERVAL_MS = 30 * 60 * 1000;
@@ -583,6 +584,11 @@ function AppInner({ clerk }) {
     return { reply: content, toolCalls };
   }
 
+  function clearChat() {
+    setChatMessages([]);
+    setChatError(null);
+  }
+
   async function sendChatMessage() {
     const text = chatInput.trim();
     if (!text || chatLoading) return;
@@ -913,6 +919,7 @@ function AppInner({ clerk }) {
             loading={chatLoading}
             error={chatError}
             onSend={sendChatMessage}
+            onClear={clearChat}
           />
         )}
 
@@ -1415,7 +1422,7 @@ function TodayView({
   );
 }
 
-function ChatView({ messages, input, setInput, loading, error, onSend }) {
+function ChatView({ messages, input, setInput, loading, error, onSend, onClear }) {
   const bottomRef = useRef(null);
   const isStreaming = messages.some((m) => m.streaming);
 
@@ -1425,7 +1432,19 @@ function ChatView({ messages, input, setInput, loading, error, onSend }) {
 
   return (
     <div className="flex flex-col" style={{ height: "calc(100dvh - 140px)", minHeight: "420px" }}>
-      <h1 className="pga-heading mb-1" style={{ fontSize: "28px", fontWeight: 700 }}>Ask Marvin</h1>
+      <div className="flex items-center justify-between mb-1">
+        <h1 className="pga-heading" style={{ fontSize: "28px", fontWeight: 700 }}>Ask Marvin</h1>
+        {messages.length > 0 && (
+          <button
+            onClick={onClear}
+            disabled={loading}
+            className="flex items-center gap-1.5"
+            style={{ fontSize: "13px", color: "var(--ink-soft)", opacity: loading ? 0.5 : 1 }}
+          >
+            <Trash2 size={14} strokeWidth={1.75} /> Clear chat
+          </button>
+        )}
+      </div>
       <p className="mb-4" style={{ fontSize: "13.5px", color: "var(--ink-soft)" }}>
         Your assistant can see — and change — today's tasks, goals, and habits.
       </p>
