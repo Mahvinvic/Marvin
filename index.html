@@ -16,92 +16,30 @@
     <style>
       /* Boot splash: painted before any JS/CSS bundle loads, so there's no
          white flash while the app boots. main.jsx fades it out once the
-         visitor taps Start. Dark, grainy backdrop with soft ambient glow
-         and a phone-frame outline cropped at the bottom edge. */
+         visitor taps Start. Just the app logo (favicon.svg) plus Start. */
       html, body {
-        background: #08090a;
+        background: #0a0a0a;
       }
       #boot-splash {
         position: fixed;
         inset: 0;
         z-index: 9999;
         display: flex;
+        flex-direction: column;
         align-items: center;
         justify-content: center;
-        overflow: hidden;
-        background: radial-gradient(120% 120% at 50% 35%, #16181b 0%, #0a0b0d 55%, #030304 100%);
+        gap: 44px;
+        background: #0a0a0a;
         transition: opacity 0.4s ease;
       }
       #boot-splash.boot-splash-hide {
         opacity: 0;
         pointer-events: none;
       }
-      #boot-splash::before,
-      #boot-splash::after {
-        content: "";
-        position: absolute;
-        border-radius: 50%;
-        filter: blur(80px);
-        animation: boot-glow-drift 9s ease-in-out infinite;
-      }
-      #boot-splash::before {
-        width: 380px;
-        height: 380px;
-        top: -60px;
-        left: -70px;
-        background: radial-gradient(circle, rgba(96, 116, 138, 0.22), transparent 70%);
-      }
-      #boot-splash::after {
-        width: 420px;
-        height: 420px;
-        bottom: 20px;
-        right: -100px;
-        background: radial-gradient(circle, rgba(70, 88, 108, 0.24), transparent 70%);
-        animation-delay: -4.5s;
-        animation-direction: alternate-reverse;
-      }
-      @keyframes boot-glow-drift {
-        0%, 100% { transform: translate(0, 0) scale(1); opacity: 0.75; }
-        50% { transform: translate(26px, 22px) scale(1.18); opacity: 1; }
-      }
-      #boot-splash .boot-noise {
-        position: absolute;
-        inset: 0;
-        z-index: 1;
-        opacity: 0.3;
-        mix-blend-mode: overlay;
-        pointer-events: none;
-        background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="90" height="90"><filter id="n"><feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="1" stitchTiles="stitch"/></filter><rect width="100%25" height="100%25" filter="url(%23n)"/></svg>');
-        background-size: 90px 90px;
-      }
-      @media (prefers-reduced-motion: reduce) {
-        #boot-splash::before,
-        #boot-splash::after {
-          animation: none;
-        }
-      }
-      #boot-splash .boot-phone {
-        position: absolute;
-        z-index: 1;
-        bottom: -260px;
-        left: 50%;
-        transform: translateX(-50%);
-        width: 220px;
-        height: 440px;
-        border: 2px solid rgba(255, 255, 255, 0.3);
-        border-radius: 36px;
-        pointer-events: none;
-      }
-      #boot-splash .boot-phone::before {
-        content: "";
-        position: absolute;
-        top: 22px;
-        left: 50%;
-        transform: translateX(-50%);
-        width: 46px;
-        height: 8px;
-        border: 2px solid rgba(255, 255, 255, 0.3);
-        border-radius: 5px;
+      #boot-splash .boot-logo {
+        width: min(64vw, 280px);
+        height: auto;
+        display: block;
       }
       #boot-splash .boot-start {
         position: relative;
@@ -127,8 +65,7 @@
   </head>
   <body>
     <div id="boot-splash">
-      <div class="boot-noise"></div>
-      <div class="boot-phone"></div>
+      <img class="boot-logo" src="/favicon.svg" alt="Marvin" width="500" height="500" />
       <button id="boot-start" class="boot-start" type="button">Start</button>
     </div>
     <div id="root"></div>
