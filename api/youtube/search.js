@@ -14,11 +14,15 @@ export default async function handler(req, res) {
     return;
   }
 
-  const q = String(req.query.q || "").trim();
-  if (!q) {
+  const topic = String(req.query.q || "").trim();
+  if (!topic) {
     res.status(400).json({ error: "Missing search query." });
     return;
   }
+  // Bias toward actual courses/tutorials rather than any video that
+  // mentions the topic — full-course content tends to run long, so filter
+  // out short clips too.
+  const q = `${topic} full course`;
 
   const cacheKey = `yt:${q.toLowerCase()}`;
   const cached = await kv.get(cacheKey);
@@ -34,6 +38,7 @@ export default async function handler(req, res) {
     url.searchParams.set("maxResults", "6");
     url.searchParams.set("safeSearch", "strict");
     url.searchParams.set("relevanceLanguage", "en");
+    url.searchParams.set("videoDuration", "long");
     url.searchParams.set("q", q);
     url.searchParams.set("key", API_KEY);
 

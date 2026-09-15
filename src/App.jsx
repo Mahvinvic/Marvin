@@ -1817,6 +1817,11 @@ function HabitsView({
 function LearnView({ goals }) {
   const [videosByGoal, setVideosByGoal] = useState({}); // { [goalId]: { loading, error, items } }
   const [playing, setPlaying] = useState({}); // { [goalId]: videoId }
+  // Tracks which goals we've already kicked off an automatic search for, so
+  // the auto-search effect never re-fires for the same goal (avoids burning
+  // YouTube quota every time this view re-renders); manual "Refresh" clicks
+  // bypass this entirely and always re-search.
+  const autoSearched = useRef(new Set());
 
   async function loadVideos(goal) {
     setVideosByGoal((prev) => ({ ...prev, [goal.id]: { ...prev[goal.id], loading: true, error: null } }));
@@ -1832,6 +1837,18 @@ function LearnView({ goals }) {
       }));
     }
   }
+
+  // Automatically find courses for every goal instead of waiting for a
+  // click — each goal only triggers one auto-search ever (per page load),
+  // since results are cached server-side anyway.
+  useEffect(() => {
+    goals.forEach((goal) => {
+      if (autoSearched.current.has(goal.id)) return;
+      autoSearched.current.add(goal.id);
+      loadVideos(goal);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [goals]);
 
   return (
     <div>
@@ -1934,9 +1951,7 @@ function LearnView({ goals }) {
               )}
 
               {!state && (
-                <p style={{ fontSize: "12.5px", color: "var(--ink-soft)" }}>
-                  Tap "Find videos" to pull a few relevant picks from YouTube.
-                </p>
+                <p style={{ fontSize: "12.5px", color: "var(--ink-soft)" }}>Looking for courses…</p>
               )}
             </div>
           );
