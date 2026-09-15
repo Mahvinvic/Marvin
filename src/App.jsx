@@ -1660,7 +1660,6 @@ function ChatView({ messages, input, setInput, loading, error, onSend, onClear, 
 
       <div className="flex gap-2">
         <input
-          autoFocus
           className="pga-input pga-chat-input"
           placeholder="Message Marvin…"
           value={input}
