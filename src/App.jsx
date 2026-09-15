@@ -21,6 +21,18 @@ import {
 
 const NAG_INTERVAL_MS = 30 * 60 * 1000;
 const CLERK_PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
+const VAPID_PUBLIC_KEY = import.meta.env.VITE_VAPID_PUBLIC_KEY;
+
+// Web Push wants the VAPID public key as a Uint8Array, but it's handed to
+// us (and stored in env) as a base64url string — standard conversion.
+function urlBase64ToUint8Array(base64String) {
+  const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+  const rawData = window.atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+  for (let i = 0; i < rawData.length; i++) outputArray[i] = rawData.charCodeAt(i);
+  return outputArray;
+}
 
 const initialGoals = [];
 const initialHabits = [];
@@ -155,6 +167,7 @@ function AppInner({ clerk }) {
   const [notifPermission, setNotifPermission] = useState(
     typeof window !== "undefined" && "Notification" in window ? Notification.permission : "unsupported"
   );
+  const [pushEnabled, setPushEnabled] = useState(false);
   const [nagHabit, setNagHabit] = useState(null);
 
   const [chatMessages, setChatMessages] = useState(() => loadLocal("marvin.chatMessages", []));
@@ -432,9 +445,45 @@ function AppInner({ clerk }) {
     setHabits((prev) => prev.filter((h) => h.id !== id));
   }
 
-  function requestNotifPermission() {
+  // Background alerts (reaching the phone even with the app closed) need a
+  // real Web Push subscription registered against a signed-in account, not
+  // just the OS-level Notification permission grant — that alone only
+  // covers notifications triggered while this tab is open and running.
+  async function subscribeToPush() {
+    if (!clerk?.isSignedIn || !VAPID_PUBLIC_KEY || !("serviceWorker" in navigator) || !("PushManager" in window)) return;
+    try {
+      const registration = await navigator.serviceWorker.ready;
+      let subscription = await registration.pushManager.getSubscription();
+      if (!subscription) {
+        subscription = await registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+        });
+      }
+      const token = await clerk.getToken();
+      const res = await fetch("/api/push/subscribe", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ subscription }),
+      });
+      setPushEnabled(res.ok);
+    } catch (err) {
+      console.error("Push subscription failed:", err);
+    }
+  }
+
+  // Auto re-subscribe if the user already granted permission previously and
+  // then signs in later (or on a new device) — no need to click Enable again.
+  useEffect(() => {
+    if (clerk?.isSignedIn && notifPermission === "granted") subscribeToPush();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clerk?.isSignedIn, notifPermission]);
+
+  async function requestNotifPermission() {
     if (typeof window === "undefined" || !("Notification" in window)) return;
-    Notification.requestPermission().then(setNotifPermission);
+    const permission = await Notification.requestPermission();
+    setNotifPermission(permission);
+    if (permission === "granted") await subscribeToPush();
   }
 
   function buildAppContext() {
@@ -1043,6 +1092,8 @@ function AppInner({ clerk }) {
             addHabit={addHabit}
             notifPermission={notifPermission}
             requestNotifPermission={requestNotifPermission}
+            pushEnabled={pushEnabled}
+            isSignedIn={!!clerk?.isSignedIn}
           />
         )}
 
@@ -1824,6 +1875,8 @@ function HabitsView({
   addHabit,
   notifPermission,
   requestNotifPermission,
+  pushEnabled,
+  isSignedIn,
 }) {
   const doneCount = habits.filter((h) => h.done).length;
 
@@ -1837,7 +1890,7 @@ function HabitsView({
       {notifPermission === "default" && (
         <div className="pga-card mb-4 px-4 py-3 flex items-center justify-between gap-3">
           <span style={{ fontSize: "13px", color: "var(--ink-soft)" }}>
-            Turn on browser notifications so nudges reach you even in another tab.
+            Turn on notifications so nudges reach you even with the app closed.
           </span>
           <button
             className="pga-btn-ghost"
@@ -1851,6 +1904,17 @@ function HabitsView({
       {notifPermission === "denied" && (
         <div className="pga-card mb-4 px-4 py-3" style={{ fontSize: "12.5px", color: "var(--ink-soft)" }}>
           Notifications are blocked. Marvin will still nudge you in-app while it's open.
+        </div>
+      )}
+      {notifPermission === "granted" && !isSignedIn && (
+        <div className="pga-card mb-4 px-4 py-3" style={{ fontSize: "12.5px", color: "var(--ink-soft)" }}>
+          Notifications are on for while the app's open. Sign in with Google to also get nudges when it's closed.
+        </div>
+      )}
+      {notifPermission === "granted" && isSignedIn && pushEnabled && (
+        <div className="pga-card mb-4 px-4 py-3 flex items-center gap-2" style={{ fontSize: "12.5px", color: "var(--ink-soft)" }}>
+          <CheckCircle2 size={14} color="var(--success)" />
+          Background alerts are on — nudges reach you even with the app closed.
         </div>
       )}
 
