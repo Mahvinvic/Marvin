@@ -609,12 +609,20 @@ function AppInner({ clerk }) {
       const titleToNewGoalId = {};
       let wireMessages = nextMessages;
       let finalReply = "";
+      // Tracks what this turn actually created so the chat bubble can offer
+      // quick-nav buttons straight to wherever the new stuff landed.
+      const created = { task: false, goal: false, habit: false };
 
       for (let round = 0; round < MAX_ROUNDS; round++) {
         const isLastRound = round === MAX_ROUNDS - 1;
         const result = await streamChatRound(wireMessages, context, isLastRound ? "none" : "auto");
 
         if (result.toolCalls?.length && !isLastRound) {
+          for (const call of result.toolCalls) {
+            if (call.function.name === "add_task") created.task = true;
+            else if (call.function.name === "add_goal") created.goal = true;
+            else if (call.function.name === "add_habit") created.habit = true;
+          }
           const toolResults = executeToolCalls(result.toolCalls, titleToNewGoalId);
           wireMessages = [
             ...wireMessages,
@@ -634,7 +642,11 @@ function AppInner({ clerk }) {
         finalReply = result.reply || "";
       }
 
-      setChatMessages((prev) => [...prev.filter((m) => !m.streaming), { role: "assistant", content: finalReply || "Done." }]);
+      const didCreateSomething = created.task || created.goal || created.habit;
+      setChatMessages((prev) => [
+        ...prev.filter((m) => !m.streaming),
+        { role: "assistant", content: finalReply || "Done.", created: didCreateSomething ? created : undefined },
+      ]);
     } catch (err) {
       setChatMessages((prev) => prev.filter((m) => !m.streaming));
       setChatError(err.message || "Couldn't reach Marvin. Is the chat server running?");
@@ -940,6 +952,7 @@ function AppInner({ clerk }) {
             error={chatError}
             onSend={sendChatMessage}
             onClear={clearChat}
+            onNavigate={setView}
           />
         )}
 
@@ -1468,7 +1481,7 @@ function TodayView({
   );
 }
 
-function ChatView({ messages, input, setInput, loading, error, onSend, onClear }) {
+function ChatView({ messages, input, setInput, loading, error, onSend, onClear, onNavigate }) {
   const bottomRef = useRef(null);
   const isStreaming = messages.some((m) => m.streaming);
 
@@ -1506,7 +1519,10 @@ function ChatView({ messages, input, setInput, loading, error, onSend, onClear }
           </div>
         )}
         {messages.map((m, i) => (
-          <div key={i} style={{ display: "flex", justifyContent: m.role === "user" ? "flex-end" : "flex-start" }}>
+          <div
+            key={i}
+            style={{ display: "flex", flexDirection: "column", gap: "6px", alignItems: m.role === "user" ? "flex-end" : "flex-start" }}
+          >
             <div
               style={{
                 maxWidth: "78%",
@@ -1521,6 +1537,37 @@ function ChatView({ messages, input, setInput, loading, error, onSend, onClear }
             >
               {m.content}
             </div>
+            {m.created && (
+              <div className="flex flex-wrap gap-2">
+                {m.created.task && (
+                  <button
+                    className="pga-btn-ghost"
+                    style={{ fontSize: "12px", padding: "5px 12px" }}
+                    onClick={() => onNavigate("today")}
+                  >
+                    View Todo
+                  </button>
+                )}
+                {m.created.habit && (
+                  <button
+                    className="pga-btn-ghost"
+                    style={{ fontSize: "12px", padding: "5px 12px" }}
+                    onClick={() => onNavigate("habits")}
+                  >
+                    View Habits
+                  </button>
+                )}
+                {m.created.goal && (
+                  <button
+                    className="pga-btn-ghost"
+                    style={{ fontSize: "12px", padding: "5px 12px" }}
+                    onClick={() => onNavigate("learn")}
+                  >
+                    View Videos
+                  </button>
+                )}
+              </div>
+            )}
           </div>
         ))}
         {loading && !isStreaming && (
