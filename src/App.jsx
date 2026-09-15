@@ -14,6 +14,8 @@ import {
   Bell,
   MessageCircle,
   Trash2,
+  GraduationCap,
+  PlayCircle,
 } from "lucide-react";
 
 const NAG_INTERVAL_MS = 30 * 60 * 1000;
@@ -56,6 +58,7 @@ const NAV = [
   { id: "chat", label: "Chat", icon: MessageCircle },
   { id: "goals", label: "Goals", icon: Target },
   { id: "habits", label: "Habits", icon: HeartPulse },
+  { id: "learn", label: "Learn", icon: GraduationCap },
   { id: "reflect", label: "Reflect", icon: MessageSquareText },
   { id: "trends", label: "Trends", icon: TrendingUp },
 ];
@@ -971,6 +974,8 @@ function AppInner({ clerk }) {
           />
         )}
 
+        {view === "learn" && <LearnView goals={goals} />}
+
         {view === "reflect" && (
           <ReflectView
             reflections={reflections}
@@ -1801,6 +1806,141 @@ function HabitsView({
         >
           <Plus size={16} /> Add a habit
         </button>
+      )}
+    </div>
+  );
+}
+
+// Pulls a handful of YouTube videos per goal on demand (not automatically,
+// to keep API quota usage down) and plays them inline via an embedded
+// player instead of just linking out to YouTube.
+function LearnView({ goals }) {
+  const [videosByGoal, setVideosByGoal] = useState({}); // { [goalId]: { loading, error, items } }
+  const [playing, setPlaying] = useState({}); // { [goalId]: videoId }
+
+  async function loadVideos(goal) {
+    setVideosByGoal((prev) => ({ ...prev, [goal.id]: { ...prev[goal.id], loading: true, error: null } }));
+    try {
+      const res = await fetch(`/api/youtube/search?q=${encodeURIComponent(goal.title)}`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Couldn't load videos.");
+      setVideosByGoal((prev) => ({ ...prev, [goal.id]: { loading: false, error: null, items: data.items || [] } }));
+    } catch (err) {
+      setVideosByGoal((prev) => ({
+        ...prev,
+        [goal.id]: { loading: false, error: err.message, items: prev[goal.id]?.items || [] },
+      }));
+    }
+  }
+
+  return (
+    <div>
+      <h1 className="pga-heading mb-1" style={{ fontSize: "28px", fontWeight: 700 }}>Learn</h1>
+      <p className="mb-6" style={{ fontSize: "13.5px", color: "var(--ink-soft)" }}>
+        YouTube videos picked for what you're working toward — pulled per goal, playable right here.
+      </p>
+
+      {goals.length === 0 ? (
+        <div className="pga-card">
+          <div className="pga-empty">Add a goal first, then come back here to find videos for it.</div>
+        </div>
+      ) : (
+        goals.map((goal) => {
+          const state = videosByGoal[goal.id];
+          const nowPlaying = playing[goal.id];
+          return (
+            <div className="pga-card px-4 py-4 mb-4" key={goal.id}>
+              <div className="flex items-center justify-between mb-3 gap-3">
+                <div className="flex items-center gap-2" style={{ minWidth: 0 }}>
+                  <span
+                    style={{ width: "8px", height: "8px", borderRadius: "50%", background: goal.color, flexShrink: 0 }}
+                  />
+                  <span
+                    style={{
+                      fontWeight: 600,
+                      fontSize: "15px",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {goal.title}
+                  </span>
+                </div>
+                <button
+                  className="pga-btn-ghost"
+                  style={{ padding: "6px 12px", fontSize: "12.5px" }}
+                  onClick={() => loadVideos(goal)}
+                  disabled={state?.loading}
+                >
+                  {state?.loading ? "Loading…" : state ? "Refresh" : "Find videos"}
+                </button>
+              </div>
+
+              {state?.error && (
+                <p className="mb-2" style={{ fontSize: "12.5px", color: "var(--danger)" }}>
+                  {state.error}
+                </p>
+              )}
+
+              {nowPlaying && (
+                <div
+                  className="mb-3"
+                  style={{ position: "relative", paddingTop: "56.25%", borderRadius: "10px", overflow: "hidden" }}
+                >
+                  <iframe
+                    src={`https://www.youtube.com/embed/${nowPlaying}?autoplay=1`}
+                    title="YouTube video player"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
+                    style={{ position: "absolute", inset: 0, width: "100%", height: "100%", border: "none" }}
+                  />
+                </div>
+              )}
+
+              {state?.items?.length > 0 && (
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  {state.items.map((v) => (
+                    <button key={v.id} onClick={() => setPlaying((p) => ({ ...p, [goal.id]: v.id }))} style={{ textAlign: "left" }}>
+                      <div style={{ position: "relative", borderRadius: "8px", overflow: "hidden", marginBottom: "4px" }}>
+                        <img src={v.thumbnail} alt={v.title} style={{ width: "100%", display: "block" }} />
+                        <PlayCircle
+                          size={28}
+                          color="#fff"
+                          style={{
+                            position: "absolute",
+                            top: "50%",
+                            left: "50%",
+                            transform: "translate(-50%, -50%)",
+                            filter: "drop-shadow(0 1px 3px rgba(0,0,0,0.5))",
+                          }}
+                        />
+                      </div>
+                      <span
+                        style={{
+                          fontSize: "12px",
+                          color: "var(--ink)",
+                          display: "-webkit-box",
+                          WebkitLineClamp: 2,
+                          WebkitBoxOrient: "vertical",
+                          overflow: "hidden",
+                        }}
+                      >
+                        {v.title}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {!state && (
+                <p style={{ fontSize: "12.5px", color: "var(--ink-soft)" }}>
+                  Tap "Find videos" to pull a few relevant picks from YouTube.
+                </p>
+              )}
+            </div>
+          );
+        })
       )}
     </div>
   );
