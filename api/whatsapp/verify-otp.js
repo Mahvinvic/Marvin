@@ -57,6 +57,7 @@ export default async function handler(req, res) {
       habits: finalRecord.habits,
       reflections: finalRecord.reflections || [],
       chatHistory: finalRecord.chatHistory || [],
+      watchList: finalRecord.watchList || [],
     },
   });
 }

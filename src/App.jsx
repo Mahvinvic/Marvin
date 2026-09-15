@@ -16,6 +16,7 @@ import {
   Trash2,
   GraduationCap,
   PlayCircle,
+  Bookmark,
 } from "lucide-react";
 
 const NAG_INTERVAL_MS = 30 * 60 * 1000;
@@ -166,15 +167,33 @@ function AppInner({ clerk }) {
     habitsRef.current = habits;
   }, [habits]);
 
-  // Always-on local persistence — goals, tasks, habits, reflections, and chat
-  // all survive closing the app/tab even before (or without) signing in.
+  const [watchList, setWatchList] = useState(() => loadLocal("marvin.watchList", []));
+
+  // Always-on local persistence — goals, tasks, habits, reflections, chat,
+  // and the watch list all survive closing the app/tab even before (or
+  // without) signing in.
   useEffect(() => saveLocal("marvin.goals", goals), [goals]);
   useEffect(() => saveLocal("marvin.tasks", tasks), [tasks]);
   useEffect(() => saveLocal("marvin.habits", habits), [habits]);
   useEffect(() => saveLocal("marvin.reflections", reflections), [reflections]);
+  useEffect(() => saveLocal("marvin.watchList", watchList), [watchList]);
   useEffect(() => {
     saveLocal("marvin.chatMessages", chatMessages.filter((m) => !m.streaming));
   }, [chatMessages]);
+
+  function saveVideoToWatchList(video, goal) {
+    setWatchList((prev) => {
+      if (prev.some((v) => v.id === video.id)) return prev;
+      return [
+        { id: video.id, title: video.title, channelTitle: video.channelTitle, thumbnail: video.thumbnail, goalId: goal?.id ?? null, goalTitle: goal?.title ?? null },
+        ...prev,
+      ];
+    });
+  }
+
+  function removeVideoFromWatchList(videoId) {
+    setWatchList((prev) => prev.filter((v) => v.id !== videoId));
+  }
 
   const [waPhone, setWaPhone] = useState("");
   const [waCodeInput, setWaCodeInput] = useState("");
@@ -200,14 +219,17 @@ function AppInner({ clerk }) {
       (data.goals?.length || 0) === 0 &&
       (data.tasks?.length || 0) === 0 &&
       (data.habits?.length || 0) === 0 &&
-      (data.chatHistory?.length || 0) === 0;
-    const localHasData = goals.length > 0 || tasks.length > 0 || habits.length > 0 || chatMessages.length > 0;
+      (data.chatHistory?.length || 0) === 0 &&
+      (data.watchList?.length || 0) === 0;
+    const localHasData =
+      goals.length > 0 || tasks.length > 0 || habits.length > 0 || chatMessages.length > 0 || watchList.length > 0;
     if (serverEmpty && localHasData) return;
     setGoals(data.goals || []);
     setTasks(data.tasks || []);
     setHabits(data.habits || []);
     setReflections(data.reflections || []);
     setChatMessages(data.chatHistory || []);
+    setWatchList(data.watchList || []);
   }
 
   // Hydrate this browser from the server record once Clerk reports a signed-in user.
@@ -242,14 +264,21 @@ function AppInner({ clerk }) {
         fetch("/api/state", {
           method: "PUT",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-          body: JSON.stringify({ goals, tasks, habits, reflections, chatHistory: chatMessages.filter((m) => !m.streaming) }),
+          body: JSON.stringify({
+            goals,
+            tasks,
+            habits,
+            reflections,
+            chatHistory: chatMessages.filter((m) => !m.streaming),
+            watchList,
+          }),
         }).catch(() => {});
       } catch {
         // Couldn't get a fresh token — the next change will retry.
       }
     }, 800);
     return () => clearTimeout(syncTimer.current);
-  }, [goals, tasks, habits, reflections, chatMessages, clerk?.isSignedIn]);
+  }, [goals, tasks, habits, reflections, chatMessages, watchList, clerk?.isSignedIn]);
 
   async function handleSignInWithGoogle() {
     setGoogleError(null);
@@ -1017,7 +1046,9 @@ function AppInner({ clerk }) {
           />
         )}
 
-        {view === "learn" && <LearnView goals={goals} />}
+        {view === "learn" && (
+          <LearnView goals={goals} watchList={watchList} onSaveVideo={saveVideoToWatchList} onRemoveVideo={removeVideoFromWatchList} />
+        )}
 
         {view === "reflect" && (
           <ReflectView
@@ -1891,9 +1922,11 @@ function HabitsView({
 // Pulls a handful of YouTube videos per goal on demand (not automatically,
 // to keep API quota usage down) and plays them inline via an embedded
 // player instead of just linking out to YouTube.
-function LearnView({ goals }) {
+function LearnView({ goals, watchList, onSaveVideo, onRemoveVideo }) {
   const [videosByGoal, setVideosByGoal] = useState({}); // { [goalId]: { loading, error, items } }
   const [playing, setPlaying] = useState({}); // { [goalId]: videoId }
+  const [watchLaterPlaying, setWatchLaterPlaying] = useState(null);
+  const savedIds = new Set(watchList.map((v) => v.id));
   // Tracks which goals we've already kicked off an automatic search for, so
   // the auto-search effect never re-fires for the same goal (avoids burning
   // YouTube quota every time this view re-renders); manual "Refresh" clicks
@@ -1933,6 +1966,88 @@ function LearnView({ goals }) {
       <p className="mb-6" style={{ fontSize: "13.5px", color: "var(--ink-soft)" }}>
         YouTube videos picked for what you're working toward — pulled per goal, playable right here.
       </p>
+
+      {watchList.length > 0 && (
+        <div className="pga-card px-4 py-4 mb-4">
+          <div className="flex items-center gap-2 mb-3">
+            <Bookmark size={16} color="var(--accent)" fill="var(--accent)" />
+            <span style={{ fontWeight: 600, fontSize: "15px" }}>Watch Later</span>
+          </div>
+
+          {watchLaterPlaying && (
+            <div
+              className="mb-3"
+              style={{ position: "relative", paddingTop: "56.25%", borderRadius: "10px", overflow: "hidden" }}
+            >
+              <iframe
+                src={`https://www.youtube.com/embed/${watchLaterPlaying}?autoplay=1`}
+                title="YouTube video player"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+                style={{ position: "absolute", inset: 0, width: "100%", height: "100%", border: "none" }}
+              />
+            </div>
+          )}
+
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+            {watchList.map((v) => (
+              <div key={v.id} style={{ textAlign: "left" }}>
+                <div
+                  onClick={() => setWatchLaterPlaying(v.id)}
+                  style={{ position: "relative", borderRadius: "8px", overflow: "hidden", marginBottom: "4px", cursor: "pointer" }}
+                >
+                  <img src={v.thumbnail} alt={v.title} style={{ width: "100%", display: "block" }} />
+                  <PlayCircle
+                    size={28}
+                    color="#fff"
+                    style={{
+                      position: "absolute",
+                      top: "50%",
+                      left: "50%",
+                      transform: "translate(-50%, -50%)",
+                      filter: "drop-shadow(0 1px 3px rgba(0,0,0,0.5))",
+                    }}
+                  />
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onRemoveVideo(v.id);
+                      if (watchLaterPlaying === v.id) setWatchLaterPlaying(null);
+                    }}
+                    aria-label="Remove from watch list"
+                    style={{
+                      position: "absolute",
+                      top: "4px",
+                      right: "4px",
+                      background: "rgba(0,0,0,0.55)",
+                      borderRadius: "999px",
+                      padding: "4px",
+                      display: "flex",
+                    }}
+                  >
+                    <X size={13} color="#fff" strokeWidth={2} />
+                  </button>
+                </div>
+                <span
+                  style={{
+                    fontSize: "12px",
+                    color: "var(--ink)",
+                    display: "-webkit-box",
+                    WebkitLineClamp: 2,
+                    WebkitBoxOrient: "vertical",
+                    overflow: "hidden",
+                  }}
+                >
+                  {v.title}
+                </span>
+                {v.goalTitle && (
+                  <div style={{ fontSize: "11px", color: "var(--ink-soft)" }}>{v.goalTitle}</div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {goals.length === 0 ? (
         <div className="pga-card">
@@ -1994,36 +2109,61 @@ function LearnView({ goals }) {
 
               {state?.items?.length > 0 && (
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                  {state.items.map((v) => (
-                    <button key={v.id} onClick={() => setPlaying((p) => ({ ...p, [goal.id]: v.id }))} style={{ textAlign: "left" }}>
-                      <div style={{ position: "relative", borderRadius: "8px", overflow: "hidden", marginBottom: "4px" }}>
-                        <img src={v.thumbnail} alt={v.title} style={{ width: "100%", display: "block" }} />
-                        <PlayCircle
-                          size={28}
-                          color="#fff"
+                  {state.items.map((v) => {
+                    const isSaved = savedIds.has(v.id);
+                    return (
+                      <div key={v.id} style={{ textAlign: "left" }}>
+                        <div
+                          onClick={() => setPlaying((p) => ({ ...p, [goal.id]: v.id }))}
+                          style={{ position: "relative", borderRadius: "8px", overflow: "hidden", marginBottom: "4px", cursor: "pointer" }}
+                        >
+                          <img src={v.thumbnail} alt={v.title} style={{ width: "100%", display: "block" }} />
+                          <PlayCircle
+                            size={28}
+                            color="#fff"
+                            style={{
+                              position: "absolute",
+                              top: "50%",
+                              left: "50%",
+                              transform: "translate(-50%, -50%)",
+                              filter: "drop-shadow(0 1px 3px rgba(0,0,0,0.5))",
+                            }}
+                          />
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (isSaved) onRemoveVideo(v.id);
+                              else onSaveVideo(v, goal);
+                            }}
+                            aria-label={isSaved ? "Remove from watch list" : "Save to watch list"}
+                            style={{
+                              position: "absolute",
+                              top: "4px",
+                              right: "4px",
+                              background: "rgba(0,0,0,0.55)",
+                              borderRadius: "999px",
+                              padding: "4px",
+                              display: "flex",
+                            }}
+                          >
+                            <Bookmark size={14} color={isSaved ? "#FFD60A" : "#fff"} fill={isSaved ? "#FFD60A" : "none"} strokeWidth={2} />
+                          </button>
+                        </div>
+                        <span
                           style={{
-                            position: "absolute",
-                            top: "50%",
-                            left: "50%",
-                            transform: "translate(-50%, -50%)",
-                            filter: "drop-shadow(0 1px 3px rgba(0,0,0,0.5))",
+                            fontSize: "12px",
+                            color: "var(--ink)",
+                            display: "-webkit-box",
+                            WebkitLineClamp: 2,
+                            WebkitBoxOrient: "vertical",
+                            overflow: "hidden",
                           }}
-                        />
+                        >
+                          {v.title}
+                        </span>
                       </div>
-                      <span
-                        style={{
-                          fontSize: "12px",
-                          color: "var(--ink)",
-                          display: "-webkit-box",
-                          WebkitLineClamp: 2,
-                          WebkitBoxOrient: "vertical",
-                          overflow: "hidden",
-                        }}
-                      >
-                        {v.title}
-                      </span>
-                    </button>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
 

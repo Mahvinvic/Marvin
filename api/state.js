@@ -17,12 +17,13 @@ export default async function handler(req, res) {
       habits: record.habits,
       reflections: record.reflections || [],
       chatHistory: record.chatHistory || [],
+      watchList: record.watchList || [],
     });
     return;
   }
 
   if (req.method === "PUT") {
-    const { goals, tasks, habits, reflections, chatHistory } = req.body ?? {};
+    const { goals, tasks, habits, reflections, chatHistory, watchList } = req.body ?? {};
     const record = await getUserRecord(accountKey);
     await saveUserRecord(accountKey, {
       ...record,
@@ -31,6 +32,7 @@ export default async function handler(req, res) {
       habits: habits ?? record.habits,
       reflections: reflections ?? record.reflections,
       chatHistory: chatHistory ?? record.chatHistory,
+      watchList: watchList ?? record.watchList,
     });
     res.status(200).json({ ok: true });
     return;

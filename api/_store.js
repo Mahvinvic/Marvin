@@ -53,7 +53,7 @@ export async function resolveAccountKey(phone) {
 
 export async function getUserRecord(accountKey) {
   const record = await kv.get(`user:${accountKey}`);
-  return record || { goals: [], tasks: [], habits: [], reflections: [], chatHistory: [] };
+  return record || { goals: [], tasks: [], habits: [], reflections: [], chatHistory: [], watchList: [] };
 }
 
 export async function saveUserRecord(accountKey, record) {
