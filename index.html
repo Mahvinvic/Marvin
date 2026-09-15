@@ -15,24 +15,22 @@
     <title>Marvin — Personal Growth</title>
     <style>
       /* Boot splash: painted before any JS/CSS bundle loads, so there's no
-         white flash while the app boots. main.jsx fades it out once React
-         has mounted. Mirrors the dark/chrome/cyan mark in favicon.svg. */
+         white flash while the app boots. main.jsx fades it out once the
+         visitor taps Start. Dark, grainy backdrop with soft ambient glow
+         and a phone-frame outline cropped at the bottom edge. */
       html, body {
-        background: #0a0a0a;
+        background: #08090a;
       }
       #boot-splash {
         position: fixed;
         inset: 0;
         z-index: 9999;
         display: flex;
-        flex-direction: column;
         align-items: center;
         justify-content: center;
-        gap: 4px;
         overflow: hidden;
-        background: radial-gradient(120% 120% at 50% 40%, #1a1a1a 0%, #0a0a0a 60%, #060606 100%);
+        background: radial-gradient(120% 120% at 50% 35%, #16181b 0%, #0a0b0d 55%, #030304 100%);
         transition: opacity 0.4s ease;
-        padding: env(safe-area-inset-top, 0) 24px env(safe-area-inset-bottom, 0);
       }
       #boot-splash.boot-splash-hide {
         opacity: 0;
@@ -43,52 +41,58 @@
         content: "";
         position: absolute;
         border-radius: 50%;
-        filter: blur(70px);
-        opacity: 0.55;
+        filter: blur(80px);
       }
       #boot-splash::before {
-        width: 320px;
-        height: 320px;
-        top: -60px;
-        left: -80px;
-        background: radial-gradient(circle, rgba(0, 255, 255, 0.16), transparent 70%);
-      }
-      #boot-splash::after {
         width: 380px;
         height: 380px;
-        bottom: -100px;
+        top: -60px;
+        left: -70px;
+        background: radial-gradient(circle, rgba(96, 116, 138, 0.22), transparent 70%);
+      }
+      #boot-splash::after {
+        width: 420px;
+        height: 420px;
+        bottom: 20px;
         right: -100px;
-        background: radial-gradient(circle, rgba(120, 150, 170, 0.18), transparent 70%);
+        background: radial-gradient(circle, rgba(70, 88, 108, 0.24), transparent 70%);
       }
-      #boot-splash .boot-mark {
-        position: relative;
+      #boot-splash .boot-noise {
+        position: absolute;
+        inset: -20%;
         z-index: 1;
-        margin-bottom: 14px;
+        opacity: 0.4;
+        mix-blend-mode: overlay;
+        pointer-events: none;
+        background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="150" height="150"><filter id="n"><feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" stitchTiles="stitch"/></filter><rect width="100%25" height="100%25" filter="url(%23n)"/></svg>');
+        background-size: 150px 150px;
       }
-      #boot-splash .boot-word {
-        position: relative;
+      #boot-splash .boot-phone {
+        position: absolute;
         z-index: 1;
-        font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-        font-weight: 900;
-        font-size: 26px;
-        letter-spacing: 7px;
-        color: #ffffff;
-        text-align: center;
+        bottom: -260px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 220px;
+        height: 440px;
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        border-radius: 36px;
+        pointer-events: none;
       }
-      #boot-splash .boot-sub {
-        position: relative;
-        z-index: 1;
-        font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-        font-weight: 600;
-        font-size: 11px;
-        letter-spacing: 4px;
-        color: #00ffff;
-        opacity: 0.85;
+      #boot-splash .boot-phone::before {
+        content: "";
+        position: absolute;
+        top: 22px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 46px;
+        height: 8px;
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        border-radius: 5px;
       }
       #boot-splash .boot-start {
         position: relative;
-        z-index: 1;
-        margin-top: 32px;
+        z-index: 2;
         padding: 13px 48px;
         border: none;
         border-radius: 999px;
@@ -110,22 +114,8 @@
   </head>
   <body>
     <div id="boot-splash">
-      <svg class="boot-mark" width="72" height="72" viewBox="0 0 500 500" xmlns="http://www.w3.org/2000/svg">
-        <defs>
-          <linearGradient id="boot-chrome" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stop-color="#ffffff" />
-            <stop offset="50%" stop-color="#b0b5b9" />
-            <stop offset="100%" stop-color="#4a4f54" />
-          </linearGradient>
-        </defs>
-        <path d="M 140 210 Q 200 200 240 235 Q 220 285 160 270 Q 130 250 140 210 Z"
-              fill="#111111" stroke="url(#boot-chrome)" stroke-width="14" stroke-linejoin="round" />
-        <path d="M 360 210 Q 300 200 260 235 Q 280 285 340 270 Q 370 250 360 210 Z"
-              fill="#111111" stroke="url(#boot-chrome)" stroke-width="14" stroke-linejoin="round" />
-        <path d="M 235 220 Q 250 212 265 220" fill="none" stroke="url(#boot-chrome)" stroke-width="12" stroke-linecap="round" />
-      </svg>
-      <div class="boot-word">MARVIN</div>
-      <div class="boot-sub">AI ASSISTANT</div>
+      <div class="boot-noise"></div>
+      <div class="boot-phone"></div>
       <button id="boot-start" class="boot-start" type="button">Start</button>
     </div>
     <div id="root"></div>
