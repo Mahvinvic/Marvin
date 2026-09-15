@@ -41,6 +41,12 @@
         height: auto;
         display: block;
       }
+      #boot-splash .boot-actions {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 14px;
+      }
       #boot-splash .boot-start {
         position: relative;
         z-index: 2;
@@ -61,14 +67,55 @@
         transform: scale(0.96);
         background: #e2e2e2;
       }
+      #boot-splash .boot-install {
+        position: relative;
+        z-index: 2;
+        display: none;
+        padding: 10px 30px;
+        border: 1.5px solid rgba(255, 255, 255, 0.35);
+        border-radius: 999px;
+        background: transparent;
+        color: #ffffff;
+        font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+        font-weight: 600;
+        font-size: 13.5px;
+        letter-spacing: 0.2px;
+        cursor: pointer;
+        -webkit-tap-highlight-color: transparent;
+        transition: transform 0.15s ease, background 0.15s ease;
+      }
+      #boot-splash .boot-install:active {
+        transform: scale(0.96);
+        background: rgba(255, 255, 255, 0.08);
+      }
     </style>
   </head>
   <body>
     <div id="boot-splash">
       <img class="boot-logo" src="/favicon.svg" alt="Marvin" width="500" height="500" />
-      <button id="boot-start" class="boot-start" type="button">Start</button>
+      <div class="boot-actions">
+        <button id="boot-start" class="boot-start" type="button">Start</button>
+        <button id="boot-install" class="boot-install" type="button">Download app</button>
+      </div>
     </div>
     <div id="root"></div>
+    <script>
+      // Android's install prompt only fires when the browser decides the
+      // page is installable, and only Chrome-family browsers on Android
+      // fire it at all — so the button stays hidden everywhere else
+      // (iOS, desktop) and only appears once we actually have a prompt
+      // to trigger, guaranteeing the click will do something.
+      (function () {
+        if (!/Android/i.test(navigator.userAgent)) return;
+        if (window.matchMedia("(display-mode: standalone)").matches) return;
+        window.addEventListener("beforeinstallprompt", function (event) {
+          event.preventDefault();
+          window.__marvinInstallPrompt = event;
+          var btn = document.getElementById("boot-install");
+          if (btn) btn.style.display = "inline-block";
+        });
+      })();
+    </script>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>

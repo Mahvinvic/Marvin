@@ -21,6 +21,21 @@ if (bootSplash && bootStart) {
   })
 }
 
+// Android-only install button — index.html shows it once a real
+// beforeinstallprompt event has fired and stashed itself on window.
+const bootInstall = document.getElementById('boot-install')
+if (bootInstall) {
+  bootInstall.addEventListener('click', async () => {
+    const promptEvent = window.__marvinInstallPrompt
+    if (!promptEvent) return
+    bootInstall.disabled = true
+    promptEvent.prompt()
+    await promptEvent.userChoice
+    window.__marvinInstallPrompt = null
+    bootInstall.style.display = 'none'
+  })
+}
+
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/sw.js').catch(() => {})
