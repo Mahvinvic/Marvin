@@ -78,6 +78,9 @@ const NAV = [
 
 // Flat, illustrated avatar for the assistant persona — appears anywhere
 // the app is "speaking" to the user (nudges, check-in prompts, sidebar id).
+// Distilled from the app logo (public/favicon.svg) — the wordmark drops
+// out entirely illegible below ~100px, so this keeps just the glasses
+// mark with much heavier strokes so it still reads at 14-48px avatar sizes.
 function AssistantAvatar({ size = 40 }) {
   return (
     <div
@@ -87,31 +90,37 @@ function AssistantAvatar({ size = 40 }) {
         borderRadius: "50%",
         overflow: "hidden",
         flexShrink: 0,
-        background: "#E4DFC9",
+        background: "#0a0a0a",
       }}
     >
-      <svg width={size} height={size} viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
-        {/* shoulders / suit jacket */}
-        <path d="M4 40C4 29 11 24 20 24C29 24 36 29 36 40Z" fill="#242320" />
-        {/* lapels */}
-        <path d="M15 25L20 34L17.5 26.5Z" fill="#1B1A17" />
-        <path d="M25 25L20 34L22.5 26.5Z" fill="#1B1A17" />
-        {/* shirt */}
-        <path d="M16 26L20 33L24 26L23 24.5H17Z" fill="#FBFAF6" />
-        {/* tie */}
-        <path d="M18.7 26.5L20 30.5L21.3 26.5L20 25.3Z" fill="#3F5B45" />
-        {/* neck */}
-        <rect x="16.5" y="19" width="7" height="7" fill="#7A4A2E" />
-        {/* head */}
-        <circle cx="20" cy="14" r="9" fill="#8A5636" />
-        {/* short hair */}
+      <svg width={size} height={size} viewBox="0 0 500 500" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <radialGradient id="pga-avatar-bg" cx="50%" cy="50%" r="70%">
+            <stop offset="0%" stopColor="#1f1f1f" />
+            <stop offset="100%" stopColor="#0a0a0a" />
+          </radialGradient>
+          <linearGradient id="pga-avatar-chrome" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#ffffff" />
+            <stop offset="50%" stopColor="#b0b5b9" />
+            <stop offset="100%" stopColor="#4a4f54" />
+          </linearGradient>
+        </defs>
+        <rect width="500" height="500" fill="url(#pga-avatar-bg)" />
         <path
-          d="M11 14C11 7.5 15 4.5 20 4.5C25 4.5 29 7.5 29 14C29 10.5 26.5 8.5 20 8.5C13.5 8.5 11 10.5 11 14Z"
-          fill="#1B140F"
+          d="M 130 220 Q 200 205 245 245 Q 220 300 155 282 Q 118 258 130 220 Z"
+          fill="#111111"
+          stroke="url(#pga-avatar-chrome)"
+          strokeWidth="16"
+          strokeLinejoin="round"
         />
-        {/* low fade sides */}
-        <path d="M11.5 14.5C11 12.5 11.3 10.8 12.3 9.5C11.6 11 11.4 12.8 11.8 14.8Z" fill="#1B140F" />
-        <path d="M28.5 14.5C29 12.5 28.7 10.8 27.7 9.5C28.4 11 28.6 12.8 28.2 14.8Z" fill="#1B140F" />
+        <path
+          d="M 370 220 Q 300 205 255 245 Q 280 300 345 282 Q 382 258 370 220 Z"
+          fill="#111111"
+          stroke="url(#pga-avatar-chrome)"
+          strokeWidth="16"
+          strokeLinejoin="round"
+        />
+        <path d="M 232 233 Q 250 223 268 233" fill="none" stroke="url(#pga-avatar-chrome)" strokeWidth="14" strokeLinecap="round" />
       </svg>
     </div>
   );
