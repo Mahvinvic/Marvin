@@ -109,6 +109,32 @@ function AssistantAvatar({ size = 40 }) {
 // once ClerkBridge below has mounted it under a real ClerkProvider.
 function AppInner({ clerk }) {
   const [view, setView] = useState("today");
+
+  // Swipe left/right anywhere in the main content to move between tabs, in
+  // the same order they appear in the nav. Only fires for a swipe that's
+  // clearly more horizontal than vertical, so it doesn't fight with
+  // scrolling a task/chat/message list.
+  const touchStart = useRef(null);
+  function handleTouchStart(e) {
+    const t = e.touches[0];
+    touchStart.current = { x: t.clientX, y: t.clientY };
+  }
+  function handleTouchEnd(e) {
+    const start = touchStart.current;
+    touchStart.current = null;
+    if (!start) return;
+    const t = e.changedTouches[0];
+    const dx = t.clientX - start.x;
+    const dy = t.clientY - start.y;
+    const SWIPE_THRESHOLD = 60;
+    if (Math.abs(dx) < SWIPE_THRESHOLD || Math.abs(dx) < Math.abs(dy) * 1.5) return;
+
+    const index = NAV.findIndex((n) => n.id === view);
+    if (index === -1) return;
+    if (dx < 0 && index < NAV.length - 1) setView(NAV[index + 1].id);
+    else if (dx > 0 && index > 0) setView(NAV[index - 1].id);
+  }
+
   const [goals, setGoals] = useState(() => loadLocal("marvin.goals", initialGoals));
   const [tasks, setTasks] = useState(() => loadLocal("marvin.tasks", initialTasks));
   const [reflections, setReflections] = useState(() => loadLocal("marvin.reflections", initialReflections));
@@ -906,7 +932,11 @@ function AppInner({ clerk }) {
       </aside>
 
       {/* Main */}
-      <main className="pga-main flex-1 px-5 pt-7 sm:px-10 sm:pt-10 max-w-2xl">
+      <main
+        className="pga-main flex-1 px-5 pt-7 sm:px-10 sm:pt-10 max-w-2xl"
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+      >
         {view === "today" && (
           <TodayView
             tasks={tasks}
