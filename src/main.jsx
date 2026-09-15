@@ -10,14 +10,15 @@ createRoot(document.getElementById('root')).render(
 )
 
 // Boot splash lives in index.html so it paints before this bundle even
-// loads (no white flash on launch). Keep it up for a fixed duration, then
-// fade it out now that React has mounted.
+// loads (no white flash on launch). It stays up until the visitor taps
+// Start, then fades out into the app underneath.
 const bootSplash = document.getElementById('boot-splash')
-if (bootSplash) {
-  setTimeout(() => {
+const bootStart = document.getElementById('boot-start')
+if (bootSplash && bootStart) {
+  bootStart.addEventListener('click', () => {
     bootSplash.classList.add('boot-splash-hide')
     setTimeout(() => bootSplash.remove(), 400)
-  }, 6000)
+  })
 }
 
 if ('serviceWorker' in navigator) {
