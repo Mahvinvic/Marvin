@@ -859,6 +859,9 @@ function AppInner({ clerk }) {
         .pga-nav-btn.active {
           background: var(--accent-soft); color: var(--accent);
         }
+        @media (min-width: 1024px) {
+          .pga-nav-chat-tab { display: none; }
+        }
 
         .pga-card {
           background: var(--surface);
@@ -1008,7 +1011,9 @@ function AppInner({ clerk }) {
           return (
             <button
               key={item.id}
-              className={`pga-nav-btn ${view === item.id ? "active" : ""}`}
+              // The persistent chat panel (lg+) replaces this tab there, so
+              // it only needs to stay in the nav below that breakpoint.
+              className={`pga-nav-btn ${view === item.id ? "active" : ""} ${item.id === "chat" ? "pga-nav-chat-tab" : ""}`}
               onClick={() => setView(item.id)}
             >
               <Icon size={16} strokeWidth={1.75} />
@@ -1121,6 +1126,33 @@ function AppInner({ clerk }) {
 
         {view === "trends" && <TrendsView goals={goals} />}
       </main>
+
+      {/* Persistent chat panel — desktop only; the "Chat" nav tab covers
+          this below the lg breakpoint (see .pga-nav-chat-tab). */}
+      <aside
+        className="hidden lg:flex flex-col shrink-0"
+        style={{
+          width: "360px",
+          borderLeft: "1px solid var(--border)",
+          background: "var(--surface)",
+          position: "sticky",
+          top: 0,
+          height: "100dvh",
+          padding: "24px 20px",
+        }}
+      >
+        <ChatView
+          panel
+          messages={chatMessages}
+          input={chatInput}
+          setInput={setChatInput}
+          loading={chatLoading}
+          error={chatError}
+          onSend={sendChatMessage}
+          onClear={clearChat}
+          onNavigate={setView}
+        />
+      </aside>
 
       {/* Mobile bottom nav */}
       <nav
@@ -1602,7 +1634,10 @@ function TodayView({
   );
 }
 
-function ChatView({ messages, input, setInput, loading, error, onSend, onClear, onNavigate }) {
+// panel=true renders the compact form used in the persistent desktop
+// sidebar (AppInner) instead of the full "Chat" nav view — same
+// messages/input, just sized to fill its container rather than the page.
+function ChatView({ messages, input, setInput, loading, error, onSend, onClear, onNavigate, panel = false }) {
   const bottomRef = useRef(null);
   const isStreaming = messages.some((m) => m.streaming);
 
@@ -1611,9 +1646,9 @@ function ChatView({ messages, input, setInput, loading, error, onSend, onClear, 
   }, [messages, loading]);
 
   return (
-    <div className="flex flex-col" style={{ height: "calc(100dvh - 140px)" }}>
+    <div className="flex flex-col" style={{ height: panel ? "100%" : "calc(100dvh - 140px)" }}>
       <div className="flex items-center justify-between mb-1">
-        <h1 className="pga-heading" style={{ fontSize: "28px", fontWeight: 700 }}>Ask Marvin</h1>
+        <h1 className="pga-heading" style={{ fontSize: panel ? "17px" : "28px", fontWeight: 700 }}>Ask Marvin</h1>
         {messages.length > 0 && (
           <button
             onClick={onClear}
@@ -1621,16 +1656,18 @@ function ChatView({ messages, input, setInput, loading, error, onSend, onClear, 
             className="flex items-center gap-1.5"
             style={{ fontSize: "13px", color: "var(--ink-soft)", opacity: loading ? 0.5 : 1 }}
           >
-            <Trash2 size={14} strokeWidth={1.75} /> Clear chat
+            <Trash2 size={14} strokeWidth={1.75} /> {panel ? "" : "Clear chat"}
           </button>
         )}
       </div>
-      <p className="mb-4" style={{ fontSize: "13.5px", color: "var(--ink-soft)" }}>
-        Your assistant can see — and change — today's tasks, goals, and habits.
-      </p>
+      {!panel && (
+        <p className="mb-4" style={{ fontSize: "13.5px", color: "var(--ink-soft)" }}>
+          Your assistant can see — and change — today's tasks, goals, and habits.
+        </p>
+      )}
 
       <div
-        className="pga-card flex-1 overflow-y-auto px-4 py-4 mb-3"
+        className={`pga-card flex-1 overflow-y-auto px-4 py-4 mb-3 ${panel ? "mt-3" : ""}`}
         style={{ display: "flex", flexDirection: "column", gap: "10px", overscrollBehavior: "contain" }}
       >
         {messages.length === 0 && (
