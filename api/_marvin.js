@@ -129,7 +129,33 @@ export const TOOLS = [
 export const client = new OpenAI({
   apiKey: process.env.NVIDIA_API_KEY || "missing-key",
   baseURL: "https://integrate.api.nvidia.com/v1",
+  // Retries are handled by withRetry below instead, so we control the count
+  // and delay ourselves rather than stacking two separate retry loops.
+  maxRetries: 0,
 });
+
+function isRetryable(err) {
+  if (err instanceof OpenAI.AuthenticationError) return false;
+  if (err instanceof OpenAI.RateLimitError) return true;
+  if (typeof err?.status === "number" && err.status >= 500) return true;
+  // NVIDIA NIM doesn't always use a 5xx status for capacity issues — catch
+  // the "temporarily overloaded" family of messages regardless of status.
+  return /overload|unavailable|temporarily|try again|busy|capacity/i.test(String(err?.message || ""));
+}
+
+// NVIDIA NIM occasionally rejects a request because it's momentarily
+// overloaded; retrying almost always succeeds within a couple of seconds,
+// so retry automatically here instead of surfacing a one-off blip to the user.
+async function withRetry(fn, { retries = 2, baseDelayMs = 500 } = {}) {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      if (attempt >= retries || !isRetryable(err)) throw err;
+      await new Promise((resolve) => setTimeout(resolve, baseDelayMs * 2 ** attempt));
+    }
+  }
+}
 
 export async function callMarvin({ messages, context, toolChoice }) {
   const wireMessages = messages.slice(-MAX_HISTORY_MESSAGES).map((m) => {
@@ -138,16 +164,18 @@ export async function callMarvin({ messages, context, toolChoice }) {
     return { role: m.role, content: m.content };
   });
 
-  const response = await client.chat.completions.create({
-    model: MODEL,
-    max_tokens: 1536,
-    tools: TOOLS,
-    tool_choice: toolChoice === "none" ? "none" : "auto",
-    messages: [
-      { role: "system", content: `${SYSTEM_PROMPT}\n\nCurrent app state (JSON):\n${context || "{}"}` },
-      ...wireMessages,
-    ],
-  });
+  const response = await withRetry(() =>
+    client.chat.completions.create({
+      model: MODEL,
+      max_tokens: 1536,
+      tools: TOOLS,
+      tool_choice: toolChoice === "none" ? "none" : "auto",
+      messages: [
+        { role: "system", content: `${SYSTEM_PROMPT}\n\nCurrent app state (JSON):\n${context || "{}"}` },
+        ...wireMessages,
+      ],
+    })
+  );
 
   const message = response.choices[0]?.message;
   if (message?.tool_calls?.length) {
@@ -168,17 +196,19 @@ export async function callMarvinStream({ messages, context, toolChoice }, onDelt
     return { role: m.role, content: m.content };
   });
 
-  const stream = await client.chat.completions.create({
-    model: MODEL,
-    max_tokens: 1536,
-    tools: TOOLS,
-    tool_choice: toolChoice === "none" ? "none" : "auto",
-    stream: true,
-    messages: [
-      { role: "system", content: `${SYSTEM_PROMPT}\n\nCurrent app state (JSON):\n${context || "{}"}` },
-      ...wireMessages,
-    ],
-  });
+  const stream = await withRetry(() =>
+    client.chat.completions.create({
+      model: MODEL,
+      max_tokens: 1536,
+      tools: TOOLS,
+      tool_choice: toolChoice === "none" ? "none" : "auto",
+      stream: true,
+      messages: [
+        { role: "system", content: `${SYSTEM_PROMPT}\n\nCurrent app state (JSON):\n${context || "{}"}` },
+        ...wireMessages,
+      ],
+    })
+  );
 
   let content = "";
   const toolCallsAcc = [];
