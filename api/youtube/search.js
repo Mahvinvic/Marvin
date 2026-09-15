@@ -24,11 +24,18 @@ export default async function handler(req, res) {
   // out short clips too.
   const q = `${topic} full course`;
 
+  // Caching is an optimization, not a hard dependency — if the KV store
+  // isn't reachable (e.g. not provisioned yet), fall through to a live
+  // search instead of crashing the whole request.
   const cacheKey = `yt:${q.toLowerCase()}`;
-  const cached = await kv.get(cacheKey);
-  if (cached) {
-    res.status(200).json({ items: cached, cached: true });
-    return;
+  try {
+    const cached = await kv.get(cacheKey);
+    if (cached) {
+      res.status(200).json({ items: cached, cached: true });
+      return;
+    }
+  } catch (err) {
+    console.error("YouTube cache read failed, continuing without cache:", err);
   }
 
   try {
@@ -60,7 +67,11 @@ export default async function handler(req, res) {
         thumbnail: item.snippet.thumbnails?.medium?.url || item.snippet.thumbnails?.default?.url || "",
       }));
 
-    await kv.set(cacheKey, items, { ex: CACHE_TTL_SECONDS });
+    try {
+      await kv.set(cacheKey, items, { ex: CACHE_TTL_SECONDS });
+    } catch (err) {
+      console.error("YouTube cache write failed, returning results uncached:", err);
+    }
     res.status(200).json({ items, cached: false });
   } catch (err) {
     console.error("YouTube search network error:", err);
