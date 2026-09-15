@@ -170,6 +170,17 @@ function AppInner({ clerk }) {
 
   const [reflectDraft, setReflectDraft] = useState({ win: "", friction: "", energy: "Steady" });
 
+  // Marvin asks for this once, on the Today view, before it has a name to
+  // call the user by — purely local, not synced to the account backend.
+  const [userName, setUserName] = useState(() => loadLocal("marvin.userName", ""));
+  const [nameDraft, setNameDraft] = useState("");
+  function submitName() {
+    const trimmed = nameDraft.trim();
+    if (!trimmed) return;
+    setUserName(trimmed);
+    setNameDraft("");
+  }
+
   const [habits, setHabits] = useState(() => loadLocal("marvin.habits", initialHabits));
   const [showAddHabit, setShowAddHabit] = useState(false);
   const [newHabitText, setNewHabitText] = useState("");
@@ -199,6 +210,7 @@ function AppInner({ clerk }) {
   useEffect(() => saveLocal("marvin.habits", habits), [habits]);
   useEffect(() => saveLocal("marvin.reflections", reflections), [reflections]);
   useEffect(() => saveLocal("marvin.watchList", watchList), [watchList]);
+  useEffect(() => saveLocal("marvin.userName", userName), [userName]);
   useEffect(() => {
     saveLocal("marvin.chatMessages", chatMessages.filter((m) => !m.streaming));
   }, [chatMessages]);
@@ -1062,6 +1074,10 @@ function AppInner({ clerk }) {
             waLinkedPhone={waLinkedPhone}
             onSendWaCode={sendWaCode}
             onVerifyWaCode={verifyWaCode}
+            userName={userName}
+            nameDraft={nameDraft}
+            setNameDraft={setNameDraft}
+            onSubmitName={submitName}
           />
         )}
 
@@ -1488,6 +1504,10 @@ function TodayView({
   waLinkedPhone,
   onSendWaCode,
   onVerifyWaCode,
+  userName,
+  nameDraft,
+  setNameDraft,
+  onSubmitName,
 }) {
   const today = new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
 
@@ -1501,10 +1521,48 @@ function TodayView({
 
   return (
     <div>
-      <div className="mb-1" style={{ fontSize: "13px", color: "var(--ink-soft)" }}>{today}</div>
-      <h1 className="pga-heading mb-6" style={{ fontSize: "28px", fontWeight: 700 }}>
-        What moves you forward today
-      </h1>
+      {userName ? (
+        <>
+          <div className="mb-1" style={{ fontSize: "13px", color: "var(--ink-soft)" }}>{today}</div>
+          <h1 className="pga-heading mb-6" style={{ fontSize: "28px", fontWeight: 700 }}>
+            What moves you forward today, {userName}
+          </h1>
+        </>
+      ) : (
+        <div className="pga-card px-4 py-4 mb-6 flex items-start gap-3">
+          <AssistantAvatar size={34} />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div
+              style={{
+                background: "var(--surface-2)",
+                borderRadius: "16px",
+                padding: "10px 14px",
+                fontSize: "14.5px",
+                lineHeight: 1.4,
+                color: "var(--ink)",
+                marginBottom: "10px",
+                display: "inline-block",
+              }}
+            >
+              Hey, I'm Marvin — I'll help you stay on top of your goals, tasks, and habits. What should I call
+              you?
+            </div>
+            <div className="flex gap-2">
+              <input
+                className="pga-input"
+                placeholder="Type your name…"
+                value={nameDraft}
+                onChange={(e) => setNameDraft(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && onSubmitName()}
+                autoFocus
+              />
+              <button className="pga-btn-primary" onClick={onSubmitName} disabled={!nameDraft.trim()}>
+                Done
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {isFreshStart ? (
         <div className="pga-card px-6 py-10 text-center">
