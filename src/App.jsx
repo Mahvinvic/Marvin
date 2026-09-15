@@ -744,15 +744,8 @@ function AppInner({ clerk }) {
           border-bottom: 1px solid var(--border);
           transition: background 0.12s ease;
         }
-        .pga-task-row > button:first-child,
-        .pga-task-row-main > button:first-child {
+        .pga-task-row > button:first-child {
           margin-top: 1px;
-        }
-        .pga-task-row-main {
-          display: flex; align-items: flex-start; gap: 12px;
-        }
-        .pga-task-goal-row {
-          display: flex; justify-content: flex-end;
         }
         .pga-task-row:last-child { border-bottom: none; }
         .pga-task-row:hover { background: rgba(120, 120, 128, 0.06); }
@@ -1264,6 +1257,34 @@ function AccountSyncCard({
   );
 }
 
+function TaskRow({ task, onToggle, onRemove }) {
+  return (
+    <div className="pga-task-row">
+      <button onClick={() => onToggle(task.id)} className="shrink-0" aria-label="Toggle task">
+        {task.done ? (
+          <CheckCircle2 size={19} color="var(--success)" strokeWidth={1.75} />
+        ) : (
+          <Circle size={19} color="var(--ink-soft)" strokeWidth={1.75} />
+        )}
+      </button>
+      <span
+        style={{
+          fontSize: "14.5px",
+          color: task.done ? "var(--ink-soft)" : "var(--ink)",
+          textDecoration: task.done ? "line-through" : "none",
+          flex: 1,
+          minWidth: 0,
+        }}
+      >
+        {task.text}
+      </span>
+      <button onClick={() => onRemove(task.id)} className="shrink-0" aria-label="Remove task" style={{ color: "var(--ink-soft)" }}>
+        <X size={16} strokeWidth={1.75} />
+      </button>
+    </div>
+  );
+}
+
 function TodayView({
   tasks,
   goals,
@@ -1298,6 +1319,14 @@ function TodayView({
   onVerifyWaCode,
 }) {
   const today = new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
+
+  // Group tasks by goal instead of repeating a goal tag on every card —
+  // each goal that has tasks gets its own section, with everything else
+  // (no goal, or a goal that's since been removed) in a plain list.
+  const unassignedTasks = tasks.filter((t) => !t.goalId || !goalById(t.goalId));
+  const goalSections = goals
+    .map((g) => ({ goal: g, tasks: tasks.filter((t) => t.goalId === g.id) }))
+    .filter((section) => section.tasks.length > 0);
 
   return (
     <div>
@@ -1342,57 +1371,36 @@ function TodayView({
             </div>
           )}
 
-          <div className="pga-card mb-4">
-            {tasks.length === 0 && (
+          {tasks.length === 0 ? (
+            <div className="pga-card mb-4">
               <div className="pga-empty">Nothing on the list yet. Add a task below to get started.</div>
-            )}
-            {tasks.map((t) => {
-              const goal = goalById(t.goalId);
-              return (
-                <div className="pga-task-row" key={t.id} style={{ flexDirection: "column", alignItems: "stretch" }}>
-                  {goal && (
-                    <div className="pga-task-goal-row">
-                      <span
-                        className="pga-chip"
-                        title={goal.title}
-                        style={{ background: goal.color + "22", color: goal.color, maxWidth: "60%" }}
-                      >
-                        {goal.title}
-                      </span>
-                    </div>
-                  )}
-                  <div className="pga-task-row-main">
-                    <button onClick={() => toggleTask(t.id)} className="shrink-0" aria-label="Toggle task">
-                      {t.done ? (
-                        <CheckCircle2 size={19} color="var(--success)" strokeWidth={1.75} />
-                      ) : (
-                        <Circle size={19} color="var(--ink-soft)" strokeWidth={1.75} />
-                      )}
-                    </button>
+            </div>
+          ) : (
+            <>
+              {unassignedTasks.length > 0 && (
+                <div className="pga-card mb-4">
+                  {unassignedTasks.map((t) => (
+                    <TaskRow key={t.id} task={t} onToggle={toggleTask} onRemove={removeTask} />
+                  ))}
+                </div>
+              )}
+              {goalSections.map(({ goal, tasks: goalTasks }) => (
+                <div className="mb-4" key={goal.id}>
+                  <div className="flex items-center gap-2 mb-2 px-1">
                     <span
-                      style={{
-                        fontSize: "14.5px",
-                        color: t.done ? "var(--ink-soft)" : "var(--ink)",
-                        textDecoration: t.done ? "line-through" : "none",
-                        flex: 1,
-                        minWidth: 0,
-                      }}
-                    >
-                      {t.text}
-                    </span>
-                    <button
-                      onClick={() => removeTask(t.id)}
-                      className="shrink-0"
-                      aria-label="Remove task"
-                      style={{ color: "var(--ink-soft)" }}
-                    >
-                      <X size={16} strokeWidth={1.75} />
-                    </button>
+                      style={{ width: "8px", height: "8px", borderRadius: "50%", background: goal.color, flexShrink: 0 }}
+                    />
+                    <span style={{ fontSize: "13px", fontWeight: 600, color: "var(--ink-soft)" }}>{goal.title}</span>
+                  </div>
+                  <div className="pga-card">
+                    {goalTasks.map((t) => (
+                      <TaskRow key={t.id} task={t} onToggle={toggleTask} onRemove={removeTask} />
+                    ))}
                   </div>
                 </div>
-              );
-            })}
-          </div>
+              ))}
+            </>
+          )}
 
           {showAddTask ? (
             <div className="pga-card px-4 py-4">
