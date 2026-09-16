@@ -1652,26 +1652,31 @@ function TodayView({
         </>
       )}
 
-      <div className="mt-8 pt-6" style={{ borderTop: "1px solid var(--border)" }}>
-        <AccountSyncCard
-          compact={!!account && !isFreshStart && (account.type !== "google" || !!waLinkedPhone)}
-          account={account}
-          onUnlink={onSignOut}
-          onGoogleSignIn={onGoogleSignIn}
-          showGoogleButton={showGoogleButton}
-          googleError={googleError}
-          waPhone={waPhone}
-          setWaPhone={setWaPhone}
-          waCodeInput={waCodeInput}
-          setWaCodeInput={setWaCodeInput}
-          waStep={waStep}
-          waError={waError}
-          waLoading={waLoading}
-          waLinkedPhone={waLinkedPhone}
-          onSendWaCode={onSendWaCode}
-          onVerifyWaCode={onVerifyWaCode}
-        />
-      </div>
+      {/* Google sign-in is left out of the front page for now (revisit
+          later) — but if someone's already signed in from before, still
+          show their account status / WhatsApp linking. */}
+      {account && (
+        <div className="mt-8 pt-6" style={{ borderTop: "1px solid var(--border)" }}>
+          <AccountSyncCard
+            compact={!isFreshStart && (account.type !== "google" || !!waLinkedPhone)}
+            account={account}
+            onUnlink={onSignOut}
+            onGoogleSignIn={onGoogleSignIn}
+            showGoogleButton={showGoogleButton}
+            googleError={googleError}
+            waPhone={waPhone}
+            setWaPhone={setWaPhone}
+            waCodeInput={waCodeInput}
+            setWaCodeInput={setWaCodeInput}
+            waStep={waStep}
+            waError={waError}
+            waLoading={waLoading}
+            waLinkedPhone={waLinkedPhone}
+            onSendWaCode={onSendWaCode}
+            onVerifyWaCode={onVerifyWaCode}
+          />
+        </div>
+      )}
     </div>
   );
 }
