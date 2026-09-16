@@ -1,4 +1,4 @@
-const CACHE_NAME = "marvin-v1";
+const CACHE_NAME = "proceed-v1";
 
 self.addEventListener("install", () => {
   self.skipWaiting();
@@ -45,11 +45,11 @@ self.addEventListener("push", (event) => {
   try {
     data = event.data ? event.data.json() : {};
   } catch {
-    data = { title: "Marvin", body: event.data ? event.data.text() : "" };
+    data = { title: "Proceed", body: event.data ? event.data.text() : "" };
   }
 
   event.waitUntil(
-    self.registration.showNotification(data.title || "Marvin", {
+    self.registration.showNotification(data.title || "Proceed", {
       body: data.body || "",
       icon: "/icon-192.png",
       badge: "/icon-192.png",

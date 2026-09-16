@@ -11,8 +11,8 @@
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <meta name="apple-mobile-web-app-title" content="Marvin" />
-    <title>Marvin — Personal Growth</title>
+    <meta name="apple-mobile-web-app-title" content="Proceed" />
+    <title>Proceed — Personal Growth</title>
     <style>
       /* Boot splash: painted before any JS/CSS bundle loads, so there's no
          white flash while the app boots. main.jsx fades it out once the
@@ -92,7 +92,7 @@
   </head>
   <body>
     <div id="boot-splash">
-      <img class="boot-logo" src="/favicon.svg" alt="Marvin" width="500" height="500" />
+      <img class="boot-logo" src="/favicon.svg" alt="Proceed" width="500" height="500" />
       <div class="boot-actions">
         <button id="boot-start" class="boot-start" type="button">Start</button>
         <button id="boot-install" class="boot-install" type="button">Download app</button>
@@ -110,7 +110,7 @@
         if (window.matchMedia("(display-mode: standalone)").matches) return;
         window.addEventListener("beforeinstallprompt", function (event) {
           event.preventDefault();
-          window.__marvinInstallPrompt = event;
+          window.__proceedInstallPrompt = event;
           var btn = document.getElementById("boot-install");
           if (btn) btn.style.display = "inline-block";
         });

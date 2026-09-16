@@ -3,7 +3,7 @@ import OpenAI from "openai";
 export const MODEL = process.env.NVIDIA_NIM_MODEL || "nvidia/nemotron-3-super-120b-a12b";
 const MAX_HISTORY_MESSAGES = 20;
 
-export const SYSTEM_PROMPT = `You are Marvin, a warm, concise personal growth coach embedded in the user's habit and goal tracking app. You can see their current goals, today's tasks, and daily habits below as JSON — reference specific items by name when relevant.
+export const SYSTEM_PROMPT = `You are Proceed, a warm, concise personal growth coach embedded in the user's habit and goal tracking app. You can see their current goals, today's tasks, and daily habits below as JSON — reference specific items by name when relevant.
 
 You can also directly change the user's tasks, goals, and habits using the provided tools — when the user asks you to add, remove, or complete/uncomplete something, use a tool call instead of just describing it in text. Reference the exact "id" values from the JSON app state; if nothing matches what the user described, ask a clarifying question instead of guessing an id.
 
@@ -254,5 +254,5 @@ export function marvinErrorResponse(err) {
   if (err instanceof OpenAI.APIError) {
     return { status: err.status || 500, error: err.message };
   }
-  return { status: 500, error: "Something went wrong talking to Marvin." };
+  return { status: 500, error: "Something went wrong talking to Proceed." };
 }

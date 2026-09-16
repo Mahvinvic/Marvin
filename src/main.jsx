@@ -26,12 +26,12 @@ if (bootSplash && bootStart) {
 const bootInstall = document.getElementById('boot-install')
 if (bootInstall) {
   bootInstall.addEventListener('click', async () => {
-    const promptEvent = window.__marvinInstallPrompt
+    const promptEvent = window.__proceedInstallPrompt
     if (!promptEvent) return
     bootInstall.disabled = true
     promptEvent.prompt()
     await promptEvent.userChoice
-    window.__marvinInstallPrompt = null
+    window.__proceedInstallPrompt = null
     bootInstall.style.display = 'none'
   })
 }

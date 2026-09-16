@@ -78,9 +78,8 @@ const NAV = [
 
 // Flat, illustrated avatar for the assistant persona — appears anywhere
 // the app is "speaking" to the user (nudges, check-in prompts, sidebar id).
-// Distilled from the app logo (public/favicon.svg) — the wordmark drops
-// out entirely illegible below ~100px, so this keeps just the glasses
-// mark with much heavier strokes so it still reads at 14-48px avatar sizes.
+// Cropped from the app logo (public/favicon.svg) — just the flag-P +
+// runner mark, since the wordmark is illegible below ~100px.
 function AssistantAvatar({ size = 40 }) {
   return (
     <div
@@ -90,42 +89,23 @@ function AssistantAvatar({ size = 40 }) {
         borderRadius: "50%",
         overflow: "hidden",
         flexShrink: 0,
-        background: "#0a0a0a",
-        // A near-black badge disappears against the app's own dark
-        // surfaces, so give it a rim + glow that reads at any size
-        // instead of relying on the (very thin, at small sizes) glasses
-        // strokes alone for contrast.
-        boxShadow: "0 0 0 1px rgba(255, 255, 255, 0.22), 0 0 10px rgba(0, 255, 255, 0.25)",
+        background: "#ffffff",
+        boxShadow: "0 0 0 1px rgba(0, 0, 0, 0.08)",
       }}
     >
-      <svg width={size} height={size} viewBox="0 0 500 500" xmlns="http://www.w3.org/2000/svg">
+      <svg width={size} height={size} viewBox="127 83 350 350" xmlns="http://www.w3.org/2000/svg">
         <defs>
-          <radialGradient id="pga-avatar-bg" cx="50%" cy="50%" r="70%">
-            <stop offset="0%" stopColor="#2c2c2e" />
-            <stop offset="100%" stopColor="#0a0a0a" />
-          </radialGradient>
-          <linearGradient id="pga-avatar-chrome" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="#ffffff" />
-            <stop offset="50%" stopColor="#ffffff" />
-            <stop offset="100%" stopColor="#f0f0f0" />
+          <linearGradient id="pga-avatar-mark" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#1E4A82" />
+            <stop offset="100%" stopColor="#122F52" />
           </linearGradient>
         </defs>
-        <rect width="500" height="500" fill="url(#pga-avatar-bg)" />
-        <path
-          d="M 130 220 Q 200 205 245 245 Q 220 300 155 282 Q 118 258 130 220 Z"
-          fill="#111111"
-          stroke="url(#pga-avatar-chrome)"
-          strokeWidth="24"
-          strokeLinejoin="round"
-        />
-        <path
-          d="M 370 220 Q 300 205 255 245 Q 280 300 345 282 Q 382 258 370 220 Z"
-          fill="#111111"
-          stroke="url(#pga-avatar-chrome)"
-          strokeWidth="24"
-          strokeLinejoin="round"
-        />
-        <path d="M 232 233 Q 250 223 268 233" fill="none" stroke="url(#pga-avatar-chrome)" strokeWidth="20" strokeLinecap="round" />
+        <rect x="127" y="83" width="350" height="350" fill="#ffffff" />
+        <polygon points="160,178 302,178 334,206 302,234 160,234" fill="url(#pga-avatar-mark)" />
+        <polygon points="160,234 206,234 206,350 183,390 160,350" fill="url(#pga-avatar-mark)" />
+        <g transform="translate(240,110) scale(10.5)" fill="url(#pga-avatar-mark)">
+          <path d="M13.49,5.48c1.1,0,2,-0.9,2,-2s-0.9,-2,-2,-2s-2,0.9,-2,2S12.39,5.48,13.49,5.48z M9.89,19.38l1,-4.4l2.1,2v6h2v-7.5l-2.1,-2l0.6,-3c1.3,1.5,3.3,2.5,5.5,2.5v-2c-1.9,0,-3.5,-1,-4.3,-2.4l-1,-1.6c-0.4,-0.6,-1,-1,-1.7,-1c-0.3,0,-0.5,0.1,-0.8,0.1L5,7.87v4.7h2v-3.4l1.8,-0.7l-1.6,8.1l-4.9,-1l-0.4,2L9.89,19.38z" />
+        </g>
       </svg>
     </div>
   );
@@ -175,7 +155,7 @@ function AppInner({ clerk }) {
 
   const [reflectDraft, setReflectDraft] = useState({ win: "", friction: "", energy: "Steady" });
 
-  // Marvin asks for this once, on the Today view, before it has a name to
+  // Proceed asks for this once, on the Today view, before it has a name to
   // call the user by — purely local, not synced to the account backend.
   const [userName, setUserName] = useState(() => loadLocal("marvin.userName", ""));
   const [nameDraft, setNameDraft] = useState("");
@@ -774,7 +754,7 @@ function AppInner({ clerk }) {
       ]);
     } catch (err) {
       setChatMessages((prev) => prev.filter((m) => !m.streaming));
-      setChatError(err.message || "Couldn't reach Marvin. Is the chat server running?");
+      setChatError(err.message || "Couldn't reach Proceed. Is the chat server running?");
     } finally {
       setChatLoading(false);
     }
@@ -1002,7 +982,7 @@ function AppInner({ clerk }) {
           <AssistantAvatar size={34} />
           <div>
             <div className="pga-heading" style={{ fontSize: "17px", fontWeight: 700, lineHeight: 1.1 }}>
-              Marvin
+              Proceed
             </div>
             <div style={{ fontSize: "11.5px", color: "var(--ink-soft)" }}>your assistant</div>
           </div>
@@ -1219,7 +1199,7 @@ function NameGate({ nameDraft, setNameDraft, onSubmitName }) {
             textAlign: "center",
           }}
         >
-          Hey, I'm Marvin! I can help you turn your goals into tasks and habits that keep you on track. And when
+          Hey, I'm Proceed! I can help you turn your goals into tasks and habits that keep you on track. And when
           you need advice, someone to talk to, or simply a chat, I'm here for you. What should I call you?
         </div>
         <div className="flex gap-2">
@@ -1308,7 +1288,7 @@ function NagToast({ habit, onComplete, onDismiss }) {
     >
       <div className="flex items-center gap-2 mb-1.5">
         <AssistantAvatar size={22} />
-        <span style={{ fontSize: "13px", fontWeight: 700, color: "var(--ink)", flex: 1 }}>Marvin</span>
+        <span style={{ fontSize: "13px", fontWeight: 700, color: "var(--ink)", flex: 1 }}>Proceed</span>
         <span style={{ fontSize: "12px", color: "var(--ink-soft)" }}>now</span>
         <button onClick={onDismiss} aria-label="Dismiss" style={{ color: "var(--ink-soft)" }}>
           <X size={14} strokeWidth={2} />
@@ -1340,7 +1320,7 @@ function NagToast({ habit, onComplete, onDismiss }) {
 // Google is the only way to sign up or log in. WhatsApp linking is a
 // secondary, optional step that only makes sense once an account already
 // exists — it attaches a phone number to that account so messages sent to
-// Marvin on WhatsApp land in the same goals/tasks/habits/chat record.
+// Proceed on WhatsApp land in the same goals/tasks/habits/chat record.
 function AccountSyncCard({
   compact,
   account,
@@ -1429,7 +1409,7 @@ function AccountSyncCard({
           ) : (
             <>
               <p className="mb-2" style={{ fontSize: "12.5px", color: "var(--ink-soft)" }}>
-                Also chat with Marvin on WhatsApp:
+                Also chat with Proceed on WhatsApp:
               </p>
               {waStep === "idle" && (
                 <div className="flex gap-2">
@@ -1561,11 +1541,11 @@ function TodayView({
             Let's set up your first goal
           </h2>
           <p className="mb-6" style={{ fontSize: "14px", color: "var(--ink-soft)", maxWidth: "440px", marginInline: "auto" }}>
-            Describe what you're working toward and let Marvin build a starter plan for you.
+            Describe what you're working toward and let Proceed build a starter plan for you.
           </p>
           <div className="flex flex-wrap justify-center gap-3">
             <button className="pga-btn-primary" onClick={onStartOnboardingWithAI}>
-              Chat Marvin
+              Chat with Proceed
             </button>
           </div>
         </div>
@@ -1695,7 +1675,7 @@ function ChatView({ messages, input, setInput, loading, error, onSend, onClear, 
   return (
     <div className="flex flex-col" style={{ height: panel ? "100%" : "calc(100dvh - 140px)" }}>
       <div className="flex items-center justify-between mb-1">
-        <h1 className="pga-heading" style={{ fontSize: panel ? "17px" : "28px", fontWeight: 700 }}>Ask Marvin</h1>
+        <h1 className="pga-heading" style={{ fontSize: panel ? "17px" : "28px", fontWeight: 700 }}>Ask Proceed</h1>
         {messages.length > 0 && (
           <button
             onClick={onClear}
@@ -1719,8 +1699,8 @@ function ChatView({ messages, input, setInput, loading, error, onSend, onClear, 
       >
         {messages.length === 0 && (
           <div className="pga-empty">
-            Ask about your goals, tell Marvin to add or complete a task, goal, or habit — or just describe a
-            big goal ("I want to learn cybersecurity") and let Marvin build the plan for you.
+            Ask about your goals, tell Proceed to add or complete a task, goal, or habit — or just describe a
+            big goal ("I want to learn cybersecurity") and let Proceed build the plan for you.
           </div>
         )}
         {messages.map((m, i) => (
@@ -1786,7 +1766,7 @@ function ChatView({ messages, input, setInput, loading, error, onSend, onClear, 
                 color: "var(--ink-soft)",
               }}
             >
-              Marvin is typing…
+              Proceed is typing…
             </div>
           </div>
         )}
@@ -1805,7 +1785,7 @@ function ChatView({ messages, input, setInput, loading, error, onSend, onClear, 
       <div className="flex gap-2">
         <input
           className="pga-input pga-chat-input"
-          placeholder="Message Marvin…"
+          placeholder="Message Proceed…"
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && onSend()}
@@ -1841,7 +1821,7 @@ function GoalsView({
 
       {goals.length === 0 && (
         <div className="pga-card mb-5">
-          <div className="pga-empty">No goals yet. Add one below, or ask Marvin in Chat to help you set one up.</div>
+          <div className="pga-empty">No goals yet. Add one below, or ask Proceed in Chat to help you set one up.</div>
         </div>
       )}
 
@@ -1977,7 +1957,7 @@ function HabitsView({
     <div>
       <h1 className="pga-heading mb-1" style={{ fontSize: "28px", fontWeight: 700 }}>Daily habits</h1>
       <p className="mb-6" style={{ fontSize: "13.5px", color: "var(--ink-soft)" }}>
-        {doneCount} / {habits.length} done today. Leave one unchecked and Marvin will keep nudging you.
+        {doneCount} / {habits.length} done today. Leave one unchecked and Proceed will keep nudging you.
       </p>
 
       {notifPermission === "default" && (
@@ -1996,7 +1976,7 @@ function HabitsView({
       )}
       {notifPermission === "denied" && (
         <div className="pga-card mb-4 px-4 py-3" style={{ fontSize: "12.5px", color: "var(--ink-soft)" }}>
-          Notifications are blocked. Marvin will still nudge you in-app while it's open.
+          Notifications are blocked. Proceed will still nudge you in-app while it's open.
         </div>
       )}
       {notifPermission === "granted" && !isSignedIn && (
@@ -2013,7 +1993,7 @@ function HabitsView({
 
       <div className="pga-card mb-4">
         {habits.length === 0 && (
-          <div className="pga-empty">No habits yet. Add one below, or ask Marvin in Chat to suggest some.</div>
+          <div className="pga-empty">No habits yet. Add one below, or ask Proceed in Chat to suggest some.</div>
         )}
         {habits.map((h) => (
           <div className="pga-task-row" key={h.id}>
