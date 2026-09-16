@@ -1235,7 +1235,8 @@ function NameGate({ nameDraft, setNameDraft, onSubmitName }) {
             textAlign: "center",
           }}
         >
-          Hey, I'm Marvin — I'll help you stay on top of your goals, tasks, and habits. What should I call you?
+          Hey, I'm Marvin! I can help you turn your goals into tasks and habits that keep you on track. And when
+          you need advice, someone to talk to, or simply a chat, I'm here for you. What should I call you?
         </div>
         <div className="flex gap-2">
           <input
