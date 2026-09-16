@@ -91,18 +91,23 @@ function AssistantAvatar({ size = 40 }) {
         overflow: "hidden",
         flexShrink: 0,
         background: "#0a0a0a",
+        // A near-black badge disappears against the app's own dark
+        // surfaces, so give it a rim + glow that reads at any size
+        // instead of relying on the (very thin, at small sizes) glasses
+        // strokes alone for contrast.
+        boxShadow: "0 0 0 1px rgba(255, 255, 255, 0.22), 0 0 10px rgba(0, 255, 255, 0.25)",
       }}
     >
       <svg width={size} height={size} viewBox="0 0 500 500" xmlns="http://www.w3.org/2000/svg">
         <defs>
           <radialGradient id="pga-avatar-bg" cx="50%" cy="50%" r="70%">
-            <stop offset="0%" stopColor="#1f1f1f" />
+            <stop offset="0%" stopColor="#2c2c2e" />
             <stop offset="100%" stopColor="#0a0a0a" />
           </radialGradient>
           <linearGradient id="pga-avatar-chrome" x1="0%" y1="0%" x2="100%" y2="100%">
             <stop offset="0%" stopColor="#ffffff" />
-            <stop offset="50%" stopColor="#b0b5b9" />
-            <stop offset="100%" stopColor="#4a4f54" />
+            <stop offset="50%" stopColor="#c7cbce" />
+            <stop offset="100%" stopColor="#6a6f74" />
           </linearGradient>
         </defs>
         <rect width="500" height="500" fill="url(#pga-avatar-bg)" />
@@ -110,17 +115,17 @@ function AssistantAvatar({ size = 40 }) {
           d="M 130 220 Q 200 205 245 245 Q 220 300 155 282 Q 118 258 130 220 Z"
           fill="#111111"
           stroke="url(#pga-avatar-chrome)"
-          strokeWidth="16"
+          strokeWidth="24"
           strokeLinejoin="round"
         />
         <path
           d="M 370 220 Q 300 205 255 245 Q 280 300 345 282 Q 382 258 370 220 Z"
           fill="#111111"
           stroke="url(#pga-avatar-chrome)"
-          strokeWidth="16"
+          strokeWidth="24"
           strokeLinejoin="round"
         />
-        <path d="M 232 233 Q 250 223 268 233" fill="none" stroke="url(#pga-avatar-chrome)" strokeWidth="14" strokeLinecap="round" />
+        <path d="M 232 233 Q 250 223 268 233" fill="none" stroke="url(#pga-avatar-chrome)" strokeWidth="20" strokeLinecap="round" />
       </svg>
     </div>
   );
@@ -808,43 +813,28 @@ function AppInner({ clerk }) {
     <div className="pga-app min-h-dvh w-full flex">
       <style>{`
         .pga-app {
-          --bg: #F2F2F7;
-          --surface: #FFFFFF;
-          --surface-2: #F2F2F7;
-          --ink: #000000;
-          --ink-soft: rgba(60, 60, 67, 0.6);
-          --accent: #007AFF;
-          --accent-soft: rgba(0, 122, 255, 0.12);
-          --success: #34C759;
-          --danger: #FF3B30;
-          --clay: #FF9500;
-          --clay-soft: rgba(255, 149, 0, 0.12);
-          --border: rgba(60, 60, 67, 0.22);
-          --shadow: 0 10px 30px rgba(0, 0, 0, 0.12);
+          /* Always dark — the app no longer follows the device's light/dark
+             system setting, so it looks the same everywhere. */
+          color-scheme: dark;
+          --bg: #000000;
+          --surface: #1C1C1E;
+          --surface-2: #2C2C2E;
+          --ink: #FFFFFF;
+          --ink-soft: rgba(235, 235, 245, 0.6);
+          --accent: #0A84FF;
+          --accent-soft: rgba(10, 132, 255, 0.18);
+          --success: #30D158;
+          --danger: #FF453A;
+          --clay: #FF9F0A;
+          --clay-soft: rgba(255, 159, 10, 0.18);
+          --border: rgba(84, 84, 88, 0.6);
+          --shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
           background: var(--bg);
           color: var(--ink);
           font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
           -webkit-font-smoothing: antialiased;
           overflow-x: hidden;
           overflow-wrap: anywhere;
-        }
-
-        @media (prefers-color-scheme: dark) {
-          .pga-app {
-            --bg: #000000;
-            --surface: #1C1C1E;
-            --surface-2: #2C2C2E;
-            --ink: #FFFFFF;
-            --ink-soft: rgba(235, 235, 245, 0.6);
-            --accent: #0A84FF;
-            --accent-soft: rgba(10, 132, 255, 0.18);
-            --success: #30D158;
-            --danger: #FF453A;
-            --clay: #FF9F0A;
-            --clay-soft: rgba(255, 159, 10, 0.18);
-            --border: rgba(84, 84, 88, 0.6);
-            --shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
-          }
         }
 
         .pga-heading {
