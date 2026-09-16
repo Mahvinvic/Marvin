@@ -2,12 +2,26 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <script>
+      // Decide the theme before anything paints, so the boot splash (and
+      // the app underneath) never flash the wrong colors on load. A saved
+      // choice from the in-app toggle wins; otherwise follow the OS.
+      (function () {
+        var saved = null;
+        try { saved = localStorage.getItem("marvin.theme"); } catch (e) {}
+        var theme = saved === "light" || saved === "dark"
+          ? saved
+          : (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+        document.documentElement.setAttribute("data-theme", theme);
+      })();
+    </script>
+    <link rel="icon" type="image/png" href="/favicon-32.png" sizes="32x32" />
+    <link rel="icon" type="image/png" href="/favicon-16.png" sizes="16x16" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <link rel="manifest" href="/manifest.webmanifest" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content" />
-    <meta name="color-scheme" content="dark" />
-    <meta name="theme-color" content="#000000" />
+    <meta name="theme-color" content="#EEF3FA" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#10181F" media="(prefers-color-scheme: dark)" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -15,10 +29,14 @@
     <title>Proceed — Personal Growth</title>
     <style>
       /* Boot splash: painted before any JS/CSS bundle loads, so there's no
-         white flash while the app boots. main.jsx fades it out once the
-         visitor taps Start. Just the app logo (favicon.svg) plus Start. */
+         flash of the wrong theme while the app boots. main.jsx fades it
+         out once the visitor taps Start. Colors and logo lockup follow
+         data-theme, set synchronously by the script above. */
       html, body {
-        background: #0a0a0a;
+        background: #EEF3FA;
+      }
+      html[data-theme="dark"], html[data-theme="dark"] body {
+        background: #10181F;
       }
       #boot-splash {
         position: fixed;
@@ -28,17 +46,29 @@
         flex-direction: column;
         align-items: center;
         justify-content: center;
-        gap: 44px;
-        background: #0a0a0a;
+        gap: 36px;
+        background: #EEF3FA;
         transition: opacity 0.4s ease;
+      }
+      html[data-theme="dark"] #boot-splash {
+        background: #10181F;
       }
       #boot-splash.boot-splash-hide {
         opacity: 0;
         pointer-events: none;
       }
       #boot-splash .boot-logo {
-        width: min(64vw, 280px);
+        width: min(72vw, 320px);
         height: auto;
+        display: block;
+      }
+      #boot-splash .boot-logo.boot-logo-dark {
+        display: none;
+      }
+      html[data-theme="dark"] #boot-splash .boot-logo.boot-logo-light {
+        display: none;
+      }
+      html[data-theme="dark"] #boot-splash .boot-logo.boot-logo-dark {
         display: block;
       }
       #boot-splash .boot-actions {
@@ -53,8 +83,8 @@
         padding: 13px 48px;
         border: none;
         border-radius: 999px;
-        background: #ffffff;
-        color: #0a0a0a;
+        background: #16375E;
+        color: #ffffff;
         font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
         font-weight: 700;
         font-size: 15px;
@@ -63,8 +93,15 @@
         -webkit-tap-highlight-color: transparent;
         transition: transform 0.15s ease, background 0.15s ease;
       }
+      html[data-theme="dark"] #boot-splash .boot-start {
+        background: #ffffff;
+        color: #10181F;
+      }
       #boot-splash .boot-start:active {
         transform: scale(0.96);
+        background: #0f2846;
+      }
+      html[data-theme="dark"] #boot-splash .boot-start:active {
         background: #e2e2e2;
       }
       #boot-splash .boot-install {
@@ -72,10 +109,10 @@
         z-index: 2;
         display: none;
         padding: 10px 30px;
-        border: 1.5px solid rgba(255, 255, 255, 0.35);
+        border: 1.5px solid rgba(22, 55, 94, 0.35);
         border-radius: 999px;
         background: transparent;
-        color: #ffffff;
+        color: #16375E;
         font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
         font-weight: 600;
         font-size: 13.5px;
@@ -84,15 +121,23 @@
         -webkit-tap-highlight-color: transparent;
         transition: transform 0.15s ease, background 0.15s ease;
       }
+      html[data-theme="dark"] #boot-splash .boot-install {
+        border-color: rgba(255, 255, 255, 0.35);
+        color: #ffffff;
+      }
       #boot-splash .boot-install:active {
         transform: scale(0.96);
+        background: rgba(22, 55, 94, 0.08);
+      }
+      html[data-theme="dark"] #boot-splash .boot-install:active {
         background: rgba(255, 255, 255, 0.08);
       }
     </style>
   </head>
   <body>
     <div id="boot-splash">
-      <img class="boot-logo" src="/favicon.svg" alt="Proceed" width="500" height="500" />
+      <img class="boot-logo boot-logo-light" src="/logo-lockup-light.png" alt="Proceed" width="458" height="382" />
+      <img class="boot-logo boot-logo-dark" src="/logo-lockup-dark.png" alt="Proceed" width="464" height="383" />
       <div class="boot-actions">
         <button id="boot-start" class="boot-start" type="button">Start</button>
         <button id="boot-install" class="boot-install" type="button">Download app</button>

@@ -17,6 +17,8 @@ import {
   GraduationCap,
   PlayCircle,
   Bookmark,
+  Sun,
+  Moon,
 } from "lucide-react";
 
 const NAG_INTERVAL_MS = 30 * 60 * 1000;
@@ -76,37 +78,37 @@ const NAV = [
   { id: "trends", label: "Trends", icon: TrendingUp },
 ];
 
-// Flat, illustrated avatar for the assistant persona — appears anywhere
-// the app is "speaking" to the user (nudges, check-in prompts, sidebar id).
-// Cropped from the app logo (public/favicon.svg) — just the flag-P +
-// runner mark, since the wordmark is illegible below ~100px.
+// Assistant avatar — the actual logo mark, cropped from the brand lockup.
+// The badge itself stays a fixed light chip (reads fine on any surface),
+// but the mark image swaps for the dark-theme version via .pga-avatar-*
+// so it still pops the way the dark lockup was drawn to.
 function AssistantAvatar({ size = 40 }) {
   return (
     <div
+      className="pga-avatar"
       style={{
         width: size,
         height: size,
         borderRadius: "50%",
         overflow: "hidden",
         flexShrink: 0,
-        background: "#ffffff",
-        boxShadow: "0 0 0 1px rgba(0, 0, 0, 0.08)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
       }}
     >
-      <svg width={size} height={size} viewBox="127 83 350 350" xmlns="http://www.w3.org/2000/svg">
-        <defs>
-          <linearGradient id="pga-avatar-mark" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="#1E4A82" />
-            <stop offset="100%" stopColor="#122F52" />
-          </linearGradient>
-        </defs>
-        <rect x="127" y="83" width="350" height="350" fill="#ffffff" />
-        <polygon points="160,178 302,178 334,206 302,234 160,234" fill="url(#pga-avatar-mark)" />
-        <polygon points="160,234 206,234 206,350 183,390 160,350" fill="url(#pga-avatar-mark)" />
-        <g transform="translate(240,110) scale(10.5)" fill="url(#pga-avatar-mark)">
-          <path d="M13.49,5.48c1.1,0,2,-0.9,2,-2s-0.9,-2,-2,-2s-2,0.9,-2,2S12.39,5.48,13.49,5.48z M9.89,19.38l1,-4.4l2.1,2v6h2v-7.5l-2.1,-2l0.6,-3c1.3,1.5,3.3,2.5,5.5,2.5v-2c-1.9,0,-3.5,-1,-4.3,-2.4l-1,-1.6c-0.4,-0.6,-1,-1,-1.7,-1c-0.3,0,-0.5,0.1,-0.8,0.1L5,7.87v4.7h2v-3.4l1.8,-0.7l-1.6,8.1l-4.9,-1l-0.4,2L9.89,19.38z" />
-        </g>
-      </svg>
+      <img
+        className="pga-avatar-light"
+        src="/logo-mark-light.png"
+        alt=""
+        style={{ width: "72%", height: "72%", objectFit: "contain" }}
+      />
+      <img
+        className="pga-avatar-dark"
+        src="/logo-mark-dark.png"
+        alt=""
+        style={{ width: "72%", height: "72%", objectFit: "contain" }}
+      />
     </div>
   );
 }
@@ -164,6 +166,33 @@ function AppInner({ clerk }) {
     if (!trimmed) return;
     setUserName(trimmed);
     setNameDraft("");
+  }
+
+  // Theme: a saved manual choice wins, otherwise follow the OS. Stored as
+  // a plain string (not JSON) so index.html's pre-paint script — which
+  // reads it before React even loads, to avoid a flash of the wrong
+  // theme — can compare it directly.
+  const [theme, setTheme] = useState(() => {
+    try {
+      const saved = localStorage.getItem("marvin.theme");
+      if (saved === "light" || saved === "dark") return saved;
+    } catch {
+      // localStorage unavailable — fall through to the OS preference.
+    }
+    if (typeof window !== "undefined" && window.matchMedia?.("(prefers-color-scheme: dark)").matches) {
+      return "dark";
+    }
+    return "light";
+  });
+  useEffect(() => {
+    try {
+      localStorage.setItem("marvin.theme", theme);
+    } catch {
+      // Best-effort only; the toggle still works for this session.
+    }
+  }, [theme]);
+  function toggleTheme() {
+    setTheme((t) => (t === "dark" ? "light" : "dark"));
   }
 
   const [habits, setHabits] = useState(() => loadLocal("marvin.habits", initialHabits));
@@ -790,25 +819,28 @@ function AppInner({ clerk }) {
   }
 
   return (
-    <div className="pga-app min-h-dvh w-full flex">
+    <div className="pga-app min-h-dvh w-full flex" data-theme={theme}>
       <style>{`
         .pga-app {
-          /* Always dark — the app no longer follows the device's light/dark
-             system setting, so it looks the same everywhere. */
-          color-scheme: dark;
-          --bg: #000000;
-          --surface: #1C1C1E;
-          --surface-2: #2C2C2E;
-          --ink: #FFFFFF;
-          --ink-soft: rgba(235, 235, 245, 0.6);
-          --accent: #0A84FF;
-          --accent-soft: rgba(10, 132, 255, 0.18);
-          --success: #30D158;
-          --danger: #FF453A;
-          --clay: #FF9F0A;
-          --clay-soft: rgba(255, 159, 10, 0.18);
-          --border: rgba(84, 84, 88, 0.6);
-          --shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+          /* Light theme uses the logo's own palette (soft blue-white bg,
+             brand navy as ink/accent); dark theme mirrors the dark lockup
+             (near-black navy bg, pale blue-white text, brightened navy
+             accent so it still reads against a dark surface). Toggled via
+             data-theme, set on this element from React state. */
+          color-scheme: light;
+          --bg: #EEF3FA;
+          --surface: #FFFFFF;
+          --surface-2: #E4ECF6;
+          --ink: #16375E;
+          --ink-soft: rgba(22, 55, 94, 0.62);
+          --accent: #16375E;
+          --accent-soft: rgba(22, 55, 94, 0.12);
+          --success: #34C759;
+          --danger: #FF3B30;
+          --clay: #FF9500;
+          --clay-soft: rgba(255, 149, 0, 0.12);
+          --border: rgba(22, 55, 94, 0.16);
+          --shadow: 0 10px 30px rgba(22, 55, 94, 0.12);
           background: var(--bg);
           color: var(--ink);
           font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
@@ -816,6 +848,60 @@ function AppInner({ clerk }) {
           overflow-x: hidden;
           overflow-wrap: anywhere;
         }
+
+        .pga-app[data-theme="dark"] {
+          color-scheme: dark;
+          --bg: #10181F;
+          --surface: #19232C;
+          --surface-2: #212D39;
+          --ink: #EAF3FA;
+          --ink-soft: rgba(234, 243, 250, 0.62);
+          --accent: #4C8FE0;
+          --accent-soft: rgba(76, 143, 224, 0.2);
+          --success: #30D158;
+          --danger: #FF453A;
+          --clay: #FF9F0A;
+          --clay-soft: rgba(255, 159, 10, 0.18);
+          --border: rgba(234, 243, 250, 0.14);
+          --shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+        }
+
+        /* Assistant avatar mark: fixed light chip so the badge reads the
+           same regardless of theme, but the mark image itself swaps to
+           the one drawn for a dark background so it isn't just a dim
+           navy shape on a light circle. */
+        .pga-avatar {
+          background: #EEF3FA;
+          box-shadow: 0 0 0 1px rgba(22, 55, 94, 0.12);
+        }
+        .pga-avatar .pga-avatar-dark { display: none; }
+        .pga-app[data-theme="dark"] .pga-avatar {
+          background: #16375E;
+          box-shadow: 0 0 0 1px rgba(234, 243, 250, 0.16);
+        }
+        .pga-app[data-theme="dark"] .pga-avatar .pga-avatar-light { display: none; }
+        .pga-app[data-theme="dark"] .pga-avatar .pga-avatar-dark { display: block; }
+
+        .pga-theme-toggle {
+          position: fixed;
+          top: calc(env(safe-area-inset-top, 0px) + 12px);
+          right: 14px;
+          z-index: 55;
+          width: 38px;
+          height: 38px;
+          border-radius: 50%;
+          border: 1px solid var(--border);
+          background: color-mix(in srgb, var(--surface) 88%, transparent);
+          backdrop-filter: blur(12px) saturate(150%);
+          -webkit-backdrop-filter: blur(12px) saturate(150%);
+          color: var(--ink);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          box-shadow: var(--shadow);
+          cursor: pointer;
+        }
+        .pga-theme-toggle:active { opacity: 0.7; }
 
         .pga-heading {
           font-family: inherit;
@@ -968,6 +1054,16 @@ function AppInner({ clerk }) {
           user-select: none;
         }
       `}</style>
+
+      <button
+        type="button"
+        className="pga-theme-toggle"
+        onClick={toggleTheme}
+        aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+        title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+      >
+        {theme === "dark" ? <Sun size={17} strokeWidth={1.75} /> : <Moon size={17} strokeWidth={1.75} />}
+      </button>
 
       {!userName ? (
         <NameGate nameDraft={nameDraft} setNameDraft={setNameDraft} onSubmitName={submitName} />
