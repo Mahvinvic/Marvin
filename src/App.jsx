@@ -1004,6 +1004,10 @@ function AppInner({ clerk }) {
         }
       `}</style>
 
+      {!userName ? (
+        <NameGate nameDraft={nameDraft} setNameDraft={setNameDraft} onSubmitName={submitName} />
+      ) : (
+      <>
       {/* Sidebar */}
       <aside
         className="w-56 shrink-0 border-r px-4 py-6 hidden sm:flex flex-col gap-1"
@@ -1075,9 +1079,6 @@ function AppInner({ clerk }) {
             onSendWaCode={sendWaCode}
             onVerifyWaCode={verifyWaCode}
             userName={userName}
-            nameDraft={nameDraft}
-            setNameDraft={setNameDraft}
-            onSubmitName={submitName}
           />
         )}
 
@@ -1206,6 +1207,50 @@ function AppInner({ clerk }) {
         }}
         onDismiss={() => setNagHabit(null)}
       />
+      </>
+      )}
+    </div>
+  );
+}
+
+// The very first thing shown inside the app (right after the boot splash),
+// before there's a name to greet the user by. Lives inside .pga-app so it
+// still gets that scope's CSS variables and component classes.
+function NameGate({ nameDraft, setNameDraft, onSubmitName }) {
+  return (
+    <div className="min-h-dvh w-full flex items-center justify-center px-6">
+      <div className="pga-card px-6 py-8 w-full" style={{ maxWidth: "420px" }}>
+        <div className="flex justify-center mb-4">
+          <AssistantAvatar size={48} />
+        </div>
+        <div
+          className="mb-5"
+          style={{
+            background: "var(--surface-2)",
+            borderRadius: "16px",
+            padding: "12px 16px",
+            fontSize: "15px",
+            lineHeight: 1.45,
+            color: "var(--ink)",
+            textAlign: "center",
+          }}
+        >
+          Hey, I'm Marvin — I'll help you stay on top of your goals, tasks, and habits. What should I call you?
+        </div>
+        <div className="flex gap-2">
+          <input
+            className="pga-input"
+            placeholder="Type your name…"
+            value={nameDraft}
+            onChange={(e) => setNameDraft(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && onSubmitName()}
+            autoFocus
+          />
+          <button className="pga-btn-primary" onClick={onSubmitName} disabled={!nameDraft.trim()}>
+            Continue
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -1505,9 +1550,6 @@ function TodayView({
   onSendWaCode,
   onVerifyWaCode,
   userName,
-  nameDraft,
-  setNameDraft,
-  onSubmitName,
 }) {
   const today = new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
 
@@ -1521,48 +1563,10 @@ function TodayView({
 
   return (
     <div>
-      {userName ? (
-        <>
-          <div className="mb-1" style={{ fontSize: "13px", color: "var(--ink-soft)" }}>{today}</div>
-          <h1 className="pga-heading mb-6" style={{ fontSize: "28px", fontWeight: 700 }}>
-            What moves you forward today, {userName}
-          </h1>
-        </>
-      ) : (
-        <div className="pga-card px-4 py-4 mb-6 flex items-start gap-3">
-          <AssistantAvatar size={34} />
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div
-              style={{
-                background: "var(--surface-2)",
-                borderRadius: "16px",
-                padding: "10px 14px",
-                fontSize: "14.5px",
-                lineHeight: 1.4,
-                color: "var(--ink)",
-                marginBottom: "10px",
-                display: "inline-block",
-              }}
-            >
-              Hey, I'm Marvin — I'll help you stay on top of your goals, tasks, and habits. What should I call
-              you?
-            </div>
-            <div className="flex gap-2">
-              <input
-                className="pga-input"
-                placeholder="Type your name…"
-                value={nameDraft}
-                onChange={(e) => setNameDraft(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && onSubmitName()}
-                autoFocus
-              />
-              <button className="pga-btn-primary" onClick={onSubmitName} disabled={!nameDraft.trim()}>
-                Done
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <div className="mb-1" style={{ fontSize: "13px", color: "var(--ink-soft)" }}>{today}</div>
+      <h1 className="pga-heading mb-6" style={{ fontSize: "28px", fontWeight: 700 }}>
+        What moves you forward today{userName ? `, ${userName}` : ""}
+      </h1>
 
       {isFreshStart ? (
         <div className="pga-card px-6 py-10 text-center">
