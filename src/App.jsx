@@ -106,8 +106,8 @@ function AssistantAvatar({ size = 40 }) {
           </radialGradient>
           <linearGradient id="pga-avatar-chrome" x1="0%" y1="0%" x2="100%" y2="100%">
             <stop offset="0%" stopColor="#ffffff" />
-            <stop offset="50%" stopColor="#c7cbce" />
-            <stop offset="100%" stopColor="#6a6f74" />
+            <stop offset="50%" stopColor="#ffffff" />
+            <stop offset="100%" stopColor="#f0f0f0" />
           </linearGradient>
         </defs>
         <rect width="500" height="500" fill="url(#pga-avatar-bg)" />
