@@ -19,6 +19,7 @@ import {
   Bookmark,
   Sun,
   Moon,
+  Quote,
 } from "lucide-react";
 
 const NAG_INTERVAL_MS = 30 * 60 * 1000;
@@ -77,6 +78,55 @@ const NAV = [
   { id: "reflect", label: "Reflect", icon: MessageSquareText },
   { id: "trends", label: "Trends", icon: TrendingUp },
 ];
+
+// Quotes tagged by topic so the "Wise words & inspiration" card can pick
+// one that actually relates to what the user's goals are about, instead
+// of always showing something generic.
+const INSPIRATION_QUOTES = [
+  { text: "The secret of getting ahead is getting started.", author: "Mark Twain", tags: ["start", "goal", "general"] },
+  { text: "A goal without a plan is just a wish.", author: "Antoine de Saint-Exupéry", tags: ["goal", "plan", "general"] },
+  { text: "Discipline is choosing between what you want now and what you want most.", author: "Abraham Lincoln", tags: ["discipline", "habit"] },
+  { text: "Small daily improvements are the key to staggering long-term results.", author: "James Clear", tags: ["habit", "growth", "routine"] },
+  { text: "You don't have to be great to start, but you have to start to be great.", author: "Zig Ziglar", tags: ["start", "goal", "general"] },
+  { text: "The expert in anything was once a beginner.", author: "Helen Hayes", tags: ["learn", "study", "education", "skill", "course"] },
+  { text: "Reading is to the mind what exercise is to the body.", author: "Joseph Addison", tags: ["read", "book", "learn", "education", "study"] },
+  { text: "Practice isn't the thing you do once you're good. It's the thing you do that makes you good.", author: "Malcolm Gladwell", tags: ["practice", "skill", "learn", "study"] },
+  { text: "Fitness is not about being better than someone else. It's about being better than you used to be.", author: "Khloe Kardashian", tags: ["fitness", "health", "gym", "exercise", "workout", "run"] },
+  { text: "Take care of your body. It's the only place you have to live.", author: "Jim Rohn", tags: ["health", "fitness", "gym", "body", "diet"] },
+  { text: "Code is like humor. When you have to explain it, it's bad.", author: "Cory House", tags: ["code", "coding", "programming", "developer", "software", "app"] },
+  { text: "First, solve the problem. Then, write the code.", author: "John Johnson", tags: ["code", "coding", "programming", "software", "project"] },
+  { text: "The only way to do great work is to love what you do.", author: "Steve Jobs", tags: ["career", "work", "job", "business"] },
+  { text: "Opportunities don't happen. You create them.", author: "Chris Grosser", tags: ["career", "business", "job", "money", "finance"] },
+  { text: "Save money and money will save you.", author: "Jamaican proverb", tags: ["money", "finance", "save", "budget"] },
+  { text: "A budget is telling your money where to go instead of wondering where it went.", author: "John C. Maxwell", tags: ["money", "finance", "budget", "save"] },
+  { text: "Sleep is the best meditation.", author: "Dalai Lama", tags: ["sleep", "rest", "health"] },
+  { text: "Well done is better than well said.", author: "Benjamin Franklin", tags: ["action", "general", "habit"] },
+  { text: "Whether you think you can or you think you can't, you're right.", author: "Henry Ford", tags: ["mindset", "general"] },
+  { text: "The pain of discipline weighs ounces; the pain of regret weighs tons.", author: "Jim Rohn", tags: ["discipline", "habit", "general"] },
+];
+
+// Module-level, not component state, so it survives Today unmounting and
+// remounting each time the tab is switched away and back — that's what
+// makes the quote actually change on a tab switch rather than resetting.
+let lastInspirationIndex = -1;
+function pickInspiration(goals) {
+  const goalWords = goals
+    .flatMap((g) => (g.title || "").toLowerCase().split(/[^a-z]+/))
+    .filter(Boolean);
+  const scored = INSPIRATION_QUOTES.map((q, i) => ({
+    i,
+    q,
+    score: goalWords.length
+      ? q.tags.reduce((s, tag) => s + (goalWords.some((w) => w.length > 2 && (w.includes(tag) || tag.includes(w))) ? 1 : 0), 0)
+      : 0,
+  }));
+  const maxScore = Math.max(0, ...scored.map((s) => s.score));
+  const candidates = maxScore > 0 ? scored.filter((s) => s.score === maxScore) : scored;
+  const pool = candidates.length > 1 ? candidates.filter((c) => c.i !== lastInspirationIndex) : candidates;
+  const pick = pool[Math.floor(Math.random() * pool.length)];
+  lastInspirationIndex = pick.i;
+  return pick.q;
+}
 
 // Assistant avatar — the actual logo mark, cropped from the brand lockup.
 // The badge itself stays a fixed light chip (reads fine on any surface),
@@ -1621,12 +1671,30 @@ function TodayView({
     .map((g) => ({ goal: g, tasks: tasks.filter((t) => t.goalId === g.id) }))
     .filter((section) => section.tasks.length > 0);
 
+  // Picked once per mount, not on every render — Today unmounts when you
+  // switch tabs, so coming back picks a fresh one relevant to the current
+  // goals, without it changing mid-visit.
+  const [inspiration] = useState(() => pickInspiration(goals));
+
   return (
     <div>
       <div className="mb-1" style={{ fontSize: "13px", color: "var(--ink-soft)" }}>{today}</div>
       <h1 className="pga-heading mb-6" style={{ fontSize: "28px", fontWeight: 700 }}>
         What moves you forward today{userName ? `, ${userName}` : ""}
       </h1>
+
+      <div className="pga-card px-4 py-4 mb-6 flex items-start gap-3">
+        <Quote size={18} strokeWidth={1.75} color="var(--accent)" style={{ flexShrink: 0, marginTop: "2px" }} />
+        <div>
+          <div style={{ fontSize: "11.5px", fontWeight: 700, letterSpacing: "0.04em", color: "var(--ink-soft)", textTransform: "uppercase", marginBottom: "4px" }}>
+            Wise words &amp; inspiration
+          </div>
+          <p style={{ fontSize: "14.5px", color: "var(--ink)", lineHeight: 1.4, marginBottom: "4px" }}>
+            "{inspiration.text}"
+          </p>
+          <div style={{ fontSize: "12.5px", color: "var(--ink-soft)" }}>— {inspiration.author}</div>
+        </div>
+      </div>
 
       {isFreshStart ? (
         <div className="pga-card px-6 py-10 text-center">
