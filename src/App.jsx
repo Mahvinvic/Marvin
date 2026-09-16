@@ -1759,7 +1759,7 @@ function TodayView({
           </p>
           <div className="flex flex-wrap justify-center gap-3">
             <button className="pga-btn-primary" onClick={onStartOnboardingWithAI}>
-              Chat with Proceed
+              Proceed
             </button>
           </div>
         </div>
