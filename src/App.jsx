@@ -413,11 +413,6 @@ function AppInner({ clerk }) {
 
   const isFreshStart = goals.length === 0 && tasks.length === 0 && habits.length === 0;
 
-  function startOnboardingManual() {
-    setView("goals");
-    setShowAddGoal(true);
-  }
-
   function startOnboardingWithAI() {
     setView("chat");
   }
@@ -1061,7 +1056,6 @@ function AppInner({ clerk }) {
             setNewTaskGoal={setNewTaskGoal}
             addTask={addTask}
             isFreshStart={isFreshStart}
-            onStartOnboardingManual={startOnboardingManual}
             onStartOnboardingWithAI={startOnboardingWithAI}
             account={account}
             onSignOut={handleSignOut}
@@ -1533,7 +1527,6 @@ function TodayView({
   setNewTaskGoal,
   addTask,
   isFreshStart,
-  onStartOnboardingManual,
   onStartOnboardingWithAI,
   account,
   onSignOut,
@@ -1583,10 +1576,7 @@ function TodayView({
           </p>
           <div className="flex flex-wrap justify-center gap-3">
             <button className="pga-btn-primary" onClick={onStartOnboardingWithAI}>
-              Ask Marvin to plan it
-            </button>
-            <button className="pga-btn-ghost" onClick={onStartOnboardingManual}>
-              Add a goal myself
+              Chat Marvin
             </button>
           </div>
         </div>
