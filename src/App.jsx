@@ -1308,7 +1308,7 @@ function NameGate({ nameDraft, setNameDraft, onSubmitName }) {
             autoFocus
           />
           <button className="pga-btn-primary" onClick={onSubmitName} disabled={!nameDraft.trim()}>
-            Continue
+            Proceed
           </button>
         </div>
       </div>
