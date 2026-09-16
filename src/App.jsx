@@ -1571,8 +1571,7 @@ function TodayView({
             Let's set up your first goal
           </h2>
           <p className="mb-6" style={{ fontSize: "14px", color: "var(--ink-soft)", maxWidth: "440px", marginInline: "auto" }}>
-            Add your own goals, tasks, and habits yourself — or describe what you're working toward and let
-            Marvin build a starter plan for you.
+            Describe what you're working toward and let Marvin build a starter plan for you.
           </p>
           <div className="flex flex-wrap justify-center gap-3">
             <button className="pga-btn-primary" onClick={onStartOnboardingWithAI}>
