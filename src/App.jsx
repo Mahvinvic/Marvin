@@ -1637,7 +1637,7 @@ function TodayView({
             Let's set up your first goal
           </h2>
           <p className="mb-6" style={{ fontSize: "14px", color: "var(--ink-soft)", maxWidth: "440px", marginInline: "auto" }}>
-            Describe what you're working toward and let Proceed build a starter plan for you.
+            Type what you're working toward and hit Proceed.
           </p>
           <div className="flex flex-wrap justify-center gap-3">
             <button className="pga-btn-primary" onClick={onStartOnboardingWithAI}>
@@ -1795,8 +1795,7 @@ function ChatView({ messages, input, setInput, loading, error, onSend, onClear, 
       >
         {messages.length === 0 && (
           <div className="pga-empty">
-            Ask about your goals, tell Proceed to add or complete a task, goal, or habit — or just describe a
-            big goal ("I want to learn cybersecurity") and let Proceed build the plan for you.
+            Ask me a question and hit Proceed.
           </div>
         )}
         {messages.map((m, i) => (
@@ -1888,7 +1887,7 @@ function ChatView({ messages, input, setInput, loading, error, onSend, onClear, 
           disabled={loading}
         />
         <button className="pga-btn-primary" onClick={onSend} disabled={loading || !input.trim()}>
-          Send
+          Proceed
         </button>
       </div>
     </div>
