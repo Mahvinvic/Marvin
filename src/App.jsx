@@ -163,6 +163,14 @@ function pickInspiration(goals) {
   return pick.q;
 }
 
+// New users (no goals/tasks/habits yet) always see this one first —
+// "{name}, the secret of getting ahead is getting started — so let's
+// start." — rather than a random pick, so that first nudge is consistent.
+function firstInspirationForNewUsers() {
+  lastInspirationIndex = 0;
+  return INSPIRATION_QUOTES[0];
+}
+
 // Assistant avatar — the actual logo mark, cropped from the brand lockup.
 // The badge itself stays a fixed light chip (reads fine on any surface),
 // but the mark image swaps for the dark-theme version via .pga-avatar-*
@@ -1709,7 +1717,9 @@ function TodayView({
   // Picked once per mount, not on every render — Today unmounts when you
   // switch tabs, so coming back picks a fresh one relevant to the current
   // goals, without it changing mid-visit.
-  const [inspiration] = useState(() => pickInspiration(goals));
+  const [inspiration] = useState(() =>
+    isFreshStart ? firstInspirationForNewUsers() : pickInspiration(goals)
+  );
 
   const personalLine = userName && inspiration.personal ? inspiration.personal(userName) : null;
 
