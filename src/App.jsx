@@ -62,6 +62,27 @@ function saveLocal(key, value) {
   }
 }
 
+// The chat API already retries NVIDIA NIM overload errors server-side
+// (see api/_marvin.js), but a shared free-tier endpoint can stay busy
+// longer than that budget allows. Mirroring the same retry here means a
+// request only ever surfaces "overloaded" to the user after both the
+// server's retries AND these have been exhausted, instead of after just
+// one attempt from here.
+function isOverloadError(message) {
+  return /overload|unavailable|temporarily|try again|busy|capacity/i.test(String(message || ""));
+}
+
+async function withClientRetry(fn, { retries = 2, baseDelayMs = 1500 } = {}) {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      if (attempt >= retries || !isOverloadError(err.message)) throw err;
+      await new Promise((resolve) => setTimeout(resolve, baseDelayMs * 2 ** attempt));
+    }
+  }
+}
+
 const trendWeeks = [
   { week: "Wk 1", g1: 1, g2: 1, g3: 2 },
   { week: "Wk 2", g1: 2, g2: 0, g3: 3 },
@@ -842,7 +863,9 @@ function AppInner({ clerk }) {
 
       for (let round = 0; round < MAX_ROUNDS; round++) {
         const isLastRound = round === MAX_ROUNDS - 1;
-        const result = await streamChatRound(wireMessages, context, isLastRound ? "none" : "auto");
+        const result = await withClientRetry(() =>
+          streamChatRound(wireMessages, context, isLastRound ? "none" : "auto")
+        );
 
         if (result.toolCalls?.length && !isLastRound) {
           for (const call of result.toolCalls) {
@@ -865,7 +888,7 @@ function AppInner({ clerk }) {
 
       if (!finalReply) {
         wireMessages = [...wireMessages, { role: "user", content: "Summarize what you just set up for me, in 2-3 sentences." }];
-        const result = await streamChatRound(wireMessages, context, "none");
+        const result = await withClientRetry(() => streamChatRound(wireMessages, context, "none"));
         finalReply = result.reply || "";
       }
 
