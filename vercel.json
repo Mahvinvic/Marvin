@@ -1,4 +1,8 @@
 {
   "rewrites": [{ "source": "/((?!api/).*)", "destination": "/index.html" }],
+  "functions": {
+    "api/chat.js": { "maxDuration": 30 },
+    "api/whatsapp/webhook.js": { "maxDuration": 30 }
+  },
   "crons": [{ "path": "/api/push/check-habits", "schedule": "0 18 * * *" }]
 }

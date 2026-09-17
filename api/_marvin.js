@@ -144,15 +144,21 @@ function isRetryable(err) {
 }
 
 // NVIDIA NIM occasionally rejects a request because it's momentarily
-// overloaded; retrying almost always succeeds within a couple of seconds,
-// so retry automatically here instead of surfacing a one-off blip to the user.
-async function withRetry(fn, { retries = 2, baseDelayMs = 500 } = {}) {
+// overloaded; retrying almost always succeeds within a few seconds, so
+// retry automatically here instead of surfacing a one-off blip to the
+// user. Honors a Retry-After header when the API sends one, otherwise
+// backs off exponentially with jitter (so a burst of requests doesn't
+// all retry in lockstep and re-trigger the same overload).
+async function withRetry(fn, { retries = 4, baseDelayMs = 500, maxDelayMs = 4000 } = {}) {
   for (let attempt = 0; ; attempt++) {
     try {
       return await fn();
     } catch (err) {
       if (attempt >= retries || !isRetryable(err)) throw err;
-      await new Promise((resolve) => setTimeout(resolve, baseDelayMs * 2 ** attempt));
+      const retryAfterMs = Number(err?.headers?.get?.("retry-after")) * 1000;
+      const backoff = Math.min(maxDelayMs, baseDelayMs * 2 ** attempt);
+      const delay = Number.isFinite(retryAfterMs) && retryAfterMs > 0 ? retryAfterMs : backoff * (0.5 + Math.random() * 0.5);
+      await new Promise((resolve) => setTimeout(resolve, delay));
     }
   }
 }
